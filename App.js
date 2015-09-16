@@ -8,9 +8,9 @@ Ext.define('CustomApp', {
             layout: {
                 type: 'hbox',
                 align: 'stretch'
-            },
+            }
         });
-    this.add(this.myLayout);
+        this.add(this.myLayout);
         this._loadSeverity();
     },
 
@@ -56,7 +56,7 @@ Ext.define('CustomApp', {
     _loadData: function(){
         var selectedSeverity = this.severityComboBox.getRecord().get('value');
         var selectedPriority = this.priorityComboBox.getRecord().get('value');
-       var myFilter = [
+        var myFilter = [
             {
                 property: 'Severity',
                 operation: '=',
@@ -79,10 +79,6 @@ Ext.define('CustomApp', {
                 listeners: {
                     load: function (myStore, myData, success) {
                         this._createChart(myStore);
-                        if(!this.myGrid) {
-                           this._creatGrid(myStore);
-                        }
-
                     },
                     scope: this
                 },
@@ -105,9 +101,9 @@ Ext.define('CustomApp', {
     _createChart: function(myStore){
 
         var endChartDate = new Date(Date.now());
-        console.log(Ext.Date.format(endChartDate, 'Y-m-d'));
+        //console.log(Ext.Date.format(endChartDate, 'Y-m-d'));
         var startChartDate = Ext.Date.add(endChartDate, Ext.Date.MONTH, -1);
-        console.log(Ext.Date.format(startChartDate, 'Y-m-d'));
+        //console.log(Ext.Date.format(startChartDate, 'Y-m-d'));
         var dates = [];
         var opened = [0];
         var closed = [0];
@@ -124,7 +120,7 @@ Ext.define('CustomApp', {
         var numberOfStartDate = Ext.Date.getDayOfYear(startChartDate);
         var numberOfEndDate = Ext.Date.getDayOfYear(endChartDate);
         for(var i = 0; i < myStore.getCount(); ++i){
-            if(i == 0 || i == 2) console.log(myStore.getAt(i));
+            //if(i == 0 || i == 2) //console.log(myStore.getAt(i));
             var el = myStore.getAt(i).data;
             if(el.OpenedDate) {
                 buffer = new Date(el.OpenedDate);
@@ -156,21 +152,22 @@ Ext.define('CustomApp', {
 
         }
 
-        //if(this.chart){
-            /*this.chart.chartData = this._getChartData(dates, opened, closed, active).series;
-            this.chart*/
-            console.log(this.chart);
-            //this.chart.update(this._getChartData(dates, opened, closed, active));
-        //}else {
-            this.chart = {
-                xtype: 'rallychart',
-                loadMask: true,
-                chartData: this._getChartData(dates, opened, closed, active),
-                chartConfig: this._getChartConfig(),
-                chartColors: ['#ff0000', '#adff2f', '#00008b']
-            };
-            this.add(this.chart);
-        //}
+
+        if (this.chart) {
+            this.remove(this.chart);
+        }
+        //this.remove(this.chart);
+        //console.log(this.chart);
+        this.chart = Ext.create('Rally.ui.chart.Chart', {
+            xtype: 'rallychart',
+            chartData: this._getChartData(dates, opened, closed, active),
+            chartConfig: this._getChartConfig(),
+            chartColors: ['#ff0000', '#adff2f', '#00008b']
+        });
+
+        this.add(this.chart);
+        this.chart._unmask();
+
     },
     _getChartData: function (array, opened, closed, active) {
         return {
@@ -200,12 +197,16 @@ Ext.define('CustomApp', {
     _getChartConfig: function () {
         return {
             chart: {
-                type: 'column',
+                type: 'column'
             },
             title: {
                 text: 'Defect Arrival and Kill Rate'
             },
-            xAxis: {},
+            xAxis: {
+                title: {
+                    text: 'Date'
+                }
+            },
             yAxis: {
                 min: 0,
                 title: {
@@ -225,10 +226,6 @@ Ext.define('CustomApp', {
                     pointPadding: 0.01,
                     borderWidth: 0,
                     width: 0.2
-                },
-                line: {
-                    width: 0,
-                    borderWidth: 0
                 },
                 series: {
                     marker: {
