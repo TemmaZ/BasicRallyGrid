@@ -20,6 +20,7 @@ Ext.define('CustomApp', {
             field: 'Severity',
             fieldLabel: 'Severity',
             labelAlign: 'right',
+            width: 200,
             listeners: {
                 ready: function (combobox) {
                     this._loadPriority();
@@ -39,9 +40,10 @@ Ext.define('CustomApp', {
             field: 'Priority',
             fieldLabel: 'Priority',
             labelAlign: 'right',
+            width: 200,
             listeners: {
                 ready: function (combobox) {
-                    this._loadData();
+                    this._loadDateForChart();
                 },
                 select: function(combobox, records){
                     this._loadData();
@@ -53,9 +55,55 @@ Ext.define('CustomApp', {
         this.myLayout.add(this.priorityComboBox);
     },
 
+    _loadDateForChart: function(){
+        var endChartDate = new Date(Date.now());
+        var startMonth = Ext.Date.add(endChartDate, Ext.Date.DAY, -1 * endChartDate.getDate() + 1);
+        startMonth = Ext.Date.add(startMonth, Ext.Date.YEAR, -1);
+        var myDate = [];
+        for(var i = 0; i < 12; ++i){
+            var string = Ext.Date.format(startMonth, "F - Y");
+            myDate[i] = [];
+            myDate[i][0] = startMonth;
+            myDate[i][1] = string;
+            startMonth = Ext.Date.add(startMonth, Ext.Date.MONTH, 1);
+        }
+        var startChartDate = Ext.Date.add(endChartDate, Ext.Date.MONTH, -1);
+        myDate[12] = [];
+        myDate[12][0] = startChartDate;
+        myDate[12][1] = Ext.Date.format(startChartDate, "M d") + " - " + Ext.Date.format(endChartDate, "M d");
+        this.dateComboBox = Ext.create('Rally.ui.combobox.ComboBox',{
+            renderTo: document.body,
+            queryMode: 'local',
+            fieldLabel: 'Date for Chart',
+            labelAlign: 'right',
+            store: new Ext.data.ArrayStore({
+                id: 0,
+                fields: [
+                    'myId',  // numeric value is the key
+                    'displayText'
+                ],
+                data: myDate // data is local
+            }),
+            valueField: 'myId',
+            displayField: 'displayText',
+            triggerAction: 'all',
+            listeners: {
+                select: function(combobox, records){
+                    this._loadData();
+                },
+                scope: this
+            }
+        });
+
+        this.myLayout.add(this.dateComboBox);
+        this.dateComboBox.select(startChartDate);
+        this._loadData();
+    },
+
     _loadData: function(){
         var selectedSeverity = this.severityComboBox.getRecord().get('value');
         var selectedPriority = this.priorityComboBox.getRecord().get('value');
+        this.startChartDate = this.dateComboBox.getRecord().get('myId');
         var myFilter = [
             {
                 property: 'Severity',
@@ -78,11 +126,11 @@ Ext.define('CustomApp', {
                 filters: myFilter,
                 listeners: {
                     load: function (myStore, myData, success) {
-                        this._createChart(myStore);
+                        this._createChart(myStore, this.startChartDate);
                     },
                     scope: this
                 },
-                fetch: ['FormattedID', 'Name', 'Requirement', 'Severity', 'OpenedDate', 'ClosedDate']
+                fetch: ['FormattedID', 'Name', 'Requirement', 'Severity', 'OpenedDate', 'ClosedDate', 'CreationDate']
             });
         }
 
@@ -92,18 +140,15 @@ Ext.define('CustomApp', {
         this.myGrid = Ext.create('Rally.ui.grid.Grid', {
             store: myStore,
             columnCfgs: [
-                'FormattedID', 'Name', 'Requirement', 'Severity', 'OpenedDate', 'ClosedDate'
+                'FormattedID', 'Name', 'Requirement', 'Severity', 'OpenedDate', 'ClosedDate', 'CreationDate'
             ]
         });
         this.add(this.myGrid);
     },
 
-    _createChart: function(myStore){
-
-        var endChartDate = new Date(Date.now());
-        //console.log(Ext.Date.format(endChartDate, 'Y-m-d'));
-        var startChartDate = Ext.Date.add(endChartDate, Ext.Date.MONTH, -1);
-        //console.log(Ext.Date.format(startChartDate, 'Y-m-d'));
+    _createChart: function(myStore, startChartDate){
+        var endChartDate = Ext.Date.add(startChartDate, Ext.Date.MONTH, 1);
+        //if(endChartDate.getDate() == 1) endChartDate = Ext.Date.add(endChartDate, Ext.Date.DAY, -1);
         var dates = [];
         var opened = [0];
         var closed = [0];
@@ -119,37 +164,42 @@ Ext.define('CustomApp', {
         dates.push(Ext.Date.format(buffer, 'm-d'));
         var numberOfStartDate = Ext.Date.getDayOfYear(startChartDate);
         var numberOfEndDate = Ext.Date.getDayOfYear(endChartDate);
+        console.log(myStore);
         for(var i = 0; i < myStore.getCount(); ++i){
-            //if(i == 0 || i == 2) //console.log(myStore.getAt(i));
             var el = myStore.getAt(i).data;
-            if(el.OpenedDate) {
-                buffer = new Date(el.OpenedDate);
-                var startIndex = Ext.Date.getDayOfYear(buffer);
-                if(numberOfStartDate <= startIndex && startIndex <= numberOfEndDate){
-                    opened[startIndex - numberOfStartDate]++;
-                }
-                if(el.ClosedDate){
-                    buffer = new Date(el.ClosedDate);
-                    var endIndex = Ext.Date.getDayOfYear(buffer);
-                    if(numberOfStartDate <= endIndex && endIndex <= numberOfEndDate){
-                        closed[endIndex - numberOfStartDate]++;
-                    }
-                    for(var k = startIndex; k < endIndex; ++k){
-                        active[k - numberOfStartDate]++;
-                    }
+            var start = -1;
+            var end = -1;
+
+            console.log(i, el);
+
+            if(el.CreationDate) {
+                var open = new Date(el.CreationDate);
+                if (open > endChartDate && Ext.Date.format(open, 'Y-m-d') != Ext.Date.format(endChartDate, 'Y-m-d')) continue;
+
+                if(open < startChartDate || Ext.Date.format(open, 'Y-m-d') == Ext.Date.format(startChartDate, 'Y-m-d')){
+                    start = 0;
                 }else{
-                    for(var k = startIndex; k <= numberOfEndDate; ++k){
-                        active[k - numberOfStartDate]++;
-                    }
+                    start = Ext.Date.getDayOfYear(open) - numberOfStartDate;
+                    opened[start]++;
                 }
-            }else if(el.ClosedDate){
-                buffer = new Date(el.ClosedDate);
-                var endIndex = Ext.Date.getDayOfYear(buffer);
-                if(numberOfStartDate <= endIndex && endIndex <= numberOfEndDate) {
-                    closed[endIndex - numberOfStartDate]++;
+
+            }
+            if(el.ClosedDate){
+                var close = new Date(el.ClosedDate);
+                if(close < startChartDate && Ext.Date.format(close, 'Y-m-d') != Ext.Date.format(startChartDate, 'Y-m-d')) continue;
+
+                if(close > endChartDate || Ext.Date.format(close, 'Y-m-d') == Ext.Date.format(endChartDate, 'Y-m-d')){
+                    end = numberOfEndDate - numberOfStartDate + 1;
+                }else{
+                    end = Ext.Date.getDayOfYear(close) - numberOfStartDate;
+                    closed[end]++;
                 }
+            }else if(el.CreationDate){
+                end = numberOfEndDate - numberOfStartDate + 1;
             }
 
+
+            if(start != -1 && end != -1)for(var k = start; k < end; ++k) active[k]++;
         }
 
 
@@ -174,7 +224,7 @@ Ext.define('CustomApp', {
             categories: array,
             series: [
                 {
-                    name: 'Open Defects',
+                    name: 'Create Defects',
                     data: opened
 
                 },
