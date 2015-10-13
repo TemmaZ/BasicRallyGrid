@@ -20,187 +20,182 @@
             }
         });
         this.add(this.myLayout);
-        this._loadSeverity();
-    },
 
-    _loadSeverity: function(){
-        this.severityComboBox = Ext.create('Rally.ui.combobox.FieldValueComboBox',{
+        var cb = Ext.create('Rally.ui.combobox.FieldValueComboBox',{
             model: 'Defect',
             field: 'Severity',
-            fieldLabel: 'Severity',
-            labelAlign: 'right',
             listeners: {
                 ready: function (combobox) {
-                    this._loadPriority();
-                },
-                select: function(combobox, records){
-                    this._loadData();
+                    var arrayData = cb.getStore();
+                    arrayData = arrayData.data;
+                    arrayData = arrayData.items;
+                    this.indexSeverity = new Map();
+                    for(var i = 0; i < arrayData.length; ++i) {
+                        var value = arrayData[i].data.value;
+                        this.indexSeverity.set(value, i);
+                    }
+                    this._loadDateForChart();
                 },
                 scope: this
             }
         });
-
-        this.myLayout.add(this.severityComboBox);
+        this.add(cb);
+        cb.setVisible(false);
     },
-    _loadPriority: function(){
-        this.priorityComboBox = Ext.create('Rally.ui.combobox.FieldValueComboBox',{
-            model: 'Defect',
-            field: 'Priority',
-            fieldLabel: 'Priority',
+
+    _loadDateForChart: function(){
+        var end = new Date();
+        end.setHours(0);
+        end.setMinutes(0);
+        end.setSeconds(0);
+        end.setMilliseconds(0);
+        var start = Ext.Date.add(end, Ext.Date.MONTH, -1);
+
+        this.startDate = Ext.create('Ext.form.field.Date',{
+            fieldLabel: 'Start Date:',
             labelAlign: 'right',
+            value: start,
+            maxValue: end,
             listeners: {
-                ready: function (combobox) {
-                    this._loadData();
-                },
                 select: function(combobox, records){
+                    this.startChartDate = records;
+                    if(this.endDate){
+                        this.endDate.setMinValue(records);
+                    }
                     this._loadData();
                 },
                 scope: this
             }
         });
 
-        this.myLayout.add(this.priorityComboBox);
+        this.myLayout.add(this.startDate);
+
+        this.endDate = Ext.create('Ext.form.field.Date',{
+            fieldLabel: 'End Date:',
+            labelAlign: 'right',
+            minValue: start,
+            value: end,
+            maxValue: end,
+            listeners: {
+                select: function(combobox, records){
+                    this.endChartDate = records;
+                    if(this.startDate){
+                        this.startDate.setMaxValue(records);
+                    }
+                    this._loadData();
+                },
+                scope: this
+            }
+        });
+
+
+        this.startChartDate = start;
+        this.endChartDate = end;
+        this.myLayout.add(this.endDate);
+        this._loadData();
     },
 
     _loadData: function(){
-        var selectedSeverity = this.severityComboBox.getRecord().get('value');
-        var selectedPriority = this.priorityComboBox.getRecord().get('value');
-        var myFilter = [
-            {
-                property: 'Severity',
-                operation: '=',
-                value: selectedSeverity
-            },
-            {
-                property: 'Priority',
-                operation: '=',
-                value: selectedPriority
-            }
-        ];
+        if (this.chart) {
+            this.remove(this.chart);
+        }
+        this.startDate.setDisabled(true);
+        this.endDate.setDisabled(true);
+        //console.log(Ext.Date.format(this.endChartDate, 'Y-m-d'));
+        var filter1 = Ext.create('Rally.data.wsapi.Filter',{
+            property: 'CreationDate',
+            operator: '>=',
+            value: Ext.Date.format(this.startChartDate, 'Y-m-d')
+        });
+        var filter2 = Ext.create('Rally.data.wsapi.Filter',{
+            property: 'CreationDate',
+            operator: '<=',
+            value: Ext.Date.format(this.endChartDate, 'Y-m-d')
+        });
+        var filter3 = Ext.create('Rally.data.wsapi.Filter',{
+            property: 'Environment',
+            operator: '!=',
+            value: 'Production'
+        });
+        var filter = filter1.and(filter2).and(filter3);
         if(this.myStore){
-            this.myStore.setFilter(myFilter);
+            this.myStore.setFilter(filter);
             this.myStore.load();
         }else {
             this.myStore = Ext.create('Rally.data.wsapi.Store', {
                 model: 'Defect',
                 autoLoad: true,
-                filters: myFilter,
+                filters: filter,
                 listeners: {
                     load: function (myStore, myData, success) {
                         this._createChart(myStore);
                     },
                     scope: this
                 },
-                fetch: ['FormattedID', 'Name', 'Requirement', 'Severity', 'OpenedDate', 'ClosedDate']
+                limit: Infinity
             });
         }
+        this.startDate.setDisabled(false);
+        this.endDate.setDisabled(false);
 
-    },
-
-    _creatGrid: function(myStore){
-        this.myGrid = Ext.create('Rally.ui.grid.Grid', {
-            store: myStore,
-            columnCfgs: [
-                'FormattedID', 'Name', 'Requirement', 'Severity', 'OpenedDate', 'ClosedDate'
-            ]
-        });
-        this.add(this.myGrid);
     },
 
     _createChart: function(myStore){
-
-        var endChartDate = new Date(Date.now());
-        //console.log(Ext.Date.format(endChartDate, 'Y-m-d'));
-        var startChartDate = Ext.Date.add(endChartDate, Ext.Date.MONTH, -1);
-        //console.log(Ext.Date.format(startChartDate, 'Y-m-d'));
-        var dates = [];
-        var opened = [0];
-        var closed = [0];
-        var active = [0];
-        var buffer = startChartDate;
-        while(Ext.Date.format(buffer, 'Y-m-d') != Ext.Date.format(endChartDate, 'Y-m-d')){
-            dates.push(Ext.Date.format(buffer, 'm-d'));
-            opened.push(0);
-            closed.push(0);
-            active.push(0);
-            buffer = Ext.Date.add(buffer, Ext.Date.DAY, 1);
+        //console.log(this.startChartDate, this.endChartDate);
+        var buffer = [];
+        var severity = [];
+        var buff = this.indexSeverity.keys();
+        var a = buff.next();
+        while (!a.done){
+            buffer.push(0);
+            severity.push(a.value);
+            a = buff.next();
         }
-        dates.push(Ext.Date.format(buffer, 'm-d'));
-        var numberOfStartDate = Ext.Date.getDayOfYear(startChartDate);
-        var numberOfEndDate = Ext.Date.getDayOfYear(endChartDate);
+        //console.log(buffer, severity);
+        var map = new Map();
+
+        //console.log(myStore.getCount());
         for(var i = 0; i < myStore.getCount(); ++i){
-            //if(i == 0 || i == 2) //console.log(myStore.getAt(i));
             var el = myStore.getAt(i).data;
-            if(el.OpenedDate) {
-                buffer = new Date(el.OpenedDate);
-                var startIndex = Ext.Date.getDayOfYear(buffer);
-                if(numberOfStartDate <= startIndex && startIndex <= numberOfEndDate){
-                    opened[startIndex - numberOfStartDate]++;
-                }
-                if(el.ClosedDate){
-                    buffer = new Date(el.ClosedDate);
-                    var endIndex = Ext.Date.getDayOfYear(buffer);
-                    if(numberOfStartDate <= endIndex && endIndex <= numberOfEndDate){
-                        closed[endIndex - numberOfStartDate]++;
-                    }
-                    for(var k = startIndex; k < endIndex; ++k){
-                        active[k - numberOfStartDate]++;
-                    }
-                }else{
-                    for(var k = startIndex; k <= numberOfEndDate; ++k){
-                        active[k - numberOfStartDate]++;
-                    }
-                }
-            }else if(el.ClosedDate){
-                buffer = new Date(el.ClosedDate);
-                var endIndex = Ext.Date.getDayOfYear(buffer);
-                if(numberOfStartDate <= endIndex && endIndex <= numberOfEndDate) {
-                    closed[endIndex - numberOfStartDate]++;
-                }
+            //console.log(i, el);
+            var index = this.indexSeverity.get(el.Severity);
+            var projectName = el.Project.Name;
+            if(!map.has(projectName)){
+                map.set(projectName, buffer.slice());
             }
-
+            map.get(projectName)[index]++;
         }
-
-
-        if (this.chart) {
-            this.remove(this.chart);
+        var chartData = {
+            categories: severity,
+            series: []
+        };
+        var colors = [];
+        buff = map.keys();
+        a = buff.next();
+        var step = 0;
+        var numOfStep = map.size;
+        while(!a.done){
+            var buffer = {
+                name: a.value,
+                data: map.get(a.value)
+            };
+            chartData.series.push(buffer);
+            colors.push(this._createColor(numOfStep, step++));
+            a = buff.next();
         }
+        //console.log(chartData, colors);
         //this.remove(this.chart);
-        //console.log(this.chart);
+        ////console.log(this.chart);
         this.chart = Ext.create('Rally.ui.chart.Chart', {
             xtype: 'rallychart',
-            chartData: this._getChartData(dates, opened, closed, active),
+            chartData: chartData,
             chartConfig: this._getChartConfig(),
-            chartColors: ['#ff0000', '#adff2f', '#00008b']
+            chartColors: colors
         });
 
         this.add(this.chart);
         this.chart._unmask();
 
-    },
-    _getChartData: function (array, opened, closed, active) {
-        return {
-            categories: array,
-            series: [
-                {
-                    name: 'Open Defects',
-                    data: opened
-
-                },
-                {
-                    name: 'Close Defects',
-                    data: closed
-
-                },
-                {
-                    name: 'Active Defects',
-                    type: 'line',
-                    data: active
-
-                }
-
-            ]
-        };
     },
 
     _getChartConfig: function () {
@@ -209,11 +204,11 @@
                 type: 'column'
             },
             title: {
-                text: 'Defect Arrival and Kill Rate'
+                text: 'Open Defects by Severity overtime(non production)'
             },
             xAxis: {
                 title: {
-                    text: 'Date'
+                    text: 'Severity'
                 }
             },
             yAxis: {
@@ -225,7 +220,7 @@
             tooltip: {
                 headerFormat: '<span style="font-size:10px">{point.key}</span><table>',
                 pointFormat: '<tr><td style="color:{series.color};padding:0">{series.name}: </td>' +
-                '<td style="padding:0"><b>{point.y}</b></td></tr>',
+                                '<td style="padding:0"><b>{point.y}</b></td></tr>',
                 footerFormat: '</table>',
                 shared: true,
                 useHTML: true
@@ -249,7 +244,29 @@
                 }
             }
         };
+    },
+
+    _createColor: function rainbow(numOfSteps, step) {
+        // This function generates vibrant, "evenly spaced" colours (i.e. no clustering). This is ideal for creating easily distinguishable vibrant markers in Google Maps and other apps.
+        // Adam Cole, 2011-Sept-14
+        // HSV to RBG adapted from: http://mjijackson.com/2008/02/rgb-to-hsl-and-rgb-to-hsv-color-model-conversion-algorithms-in-javascript
+        var r, g, b;
+        var h = step / numOfSteps;
+        var i = ~~(h * 6);
+        var f = h * 6 - i;
+        var q = 1 - f;
+        switch(i % 6){
+            case 0: r = 1; g = f; b = 0; break;
+            case 1: r = q; g = 1; b = 0; break;
+            case 2: r = 0; g = 1; b = f; break;
+            case 3: r = 0; g = q; b = 1; break;
+            case 4: r = f; g = 0; b = 1; break;
+            case 5: r = 1; g = 0; b = q; break;
+        }
+        var c = "#" + ("00" + (~ ~(r * 255)).toString(16)).slice(-2) + ("00" + (~ ~(g * 255)).toString(16)).slice(-2) + ("00" + (~ ~(b * 255)).toString(16)).slice(-2);
+        return (c);
     }
+
 });
 
             Rally.launchApp('CustomApp', {
