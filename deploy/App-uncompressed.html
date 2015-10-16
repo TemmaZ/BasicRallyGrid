@@ -21,34 +21,12 @@
         });
         this.add(this.myLayout);
 
-        var cb = Ext.create('Rally.ui.combobox.FieldValueComboBox',{
-            model: 'Defect',
-            field: 'Severity',
-            listeners: {
-                ready: function (combobox) {
-                    var arrayData = cb.getStore();
-                    arrayData = arrayData.data;
-                    arrayData = arrayData.items;
-                    this.indexSeverity = new Map();
-                    for(var i = 0; i < arrayData.length; ++i) {
-                        var value = arrayData[i].data.value;
-                        this.indexSeverity.set(value, i);
-                    }
-                    this._loadDateForChart();
-                },
-                scope: this
-            }
-        });
-        this.add(cb);
-        cb.setVisible(false);
+        this._loadDateForChart();
+
     },
 
     _loadDateForChart: function(){
         var end = new Date();
-        end.setHours(0);
-        end.setMinutes(0);
-        end.setSeconds(0);
-        end.setMilliseconds(0);
         var start = Ext.Date.add(end, Ext.Date.MONTH, -1);
 
         this.startDate = Ext.create('Ext.form.field.Date',{
@@ -148,35 +126,81 @@
     _createChart: function(myStore){
         //console.log(this.startChartDate, this.endChartDate);
         var buffer = [];
-        var severity = [];
-        var buff = this.indexSeverity.keys();
-        var a = buff.next();
-        while (!a.done){
+        var days = [];
+        var countDay  =  ~~((this.endChartDate - this.startChartDate)/1000/60/60/24 + 0.5);
+        var byMonth;
+        var inc = 0;
+        var bufferDay = this.startChartDate;
+        if(countDay >= 240){
+            byMonth = new Map();
+            for(;Ext.Date.format(bufferDay, 'M Y') != Ext.Date.format(this.endChartDate, 'M Y'); bufferDay = Ext.Date.add(bufferDay, Ext.Date.MONTH, 1)){
+                var string = Ext.Date.format(bufferDay, 'M Y');
+                byMonth.set(string, days.length);
+                days.push(string);
+                buffer.push(0);
+            }
+            byMonth.set(Ext.Date.format(bufferDay, 'M Y'), days.length);
+            days.push(Ext.Date.format(bufferDay, 'M Y'));
             buffer.push(0);
-            severity.push(a.value);
-            a = buff.next();
+        }else {
+            if (countDay > 31) {
+                var count;
+                for (var del = 31; del >= 12; --del) {
+                    var buf = countDay / del;
+                    if (buf - (~~buf) <= 0.2) {
+                        count = del;
+                        break;
+                    }
+                }
+                if (!count) count = 12;
+                inc = ~~(countDay / count + 0.5);
+            }else{
+                inc = 1;
+            }
+            for(;Ext.Date.format(bufferDay, 'Ymd') < Ext.Date.format(this.endChartDate, 'Ymd'); bufferDay = Ext.Date.add(bufferDay, Ext.Date.DAY, inc)){
+                days.push(Ext.Date.format(bufferDay, 'M d'));
+                buffer.push(0);
+            }
+            days.push(Ext.Date.format(this.endChartDate, 'M d'));
+            buffer.push(0);
+
         }
+
         //console.log(buffer, severity);
         var map = new Map();
 
         //console.log(myStore.getCount());
+        this.startChartDate.setHours(0);
+        this.startChartDate.setMilliseconds(0);
+        this.startChartDate.setMinutes(0);
+        this.startChartDate.setSeconds(0);
         for(var i = 0; i < myStore.getCount(); ++i){
             var el = myStore.getAt(i).data;
             console.log(i, el);
-            var index = this.indexSeverity.get(el.Severity);
             var projectName = el.Project.Name;
+            var date = el.CreationDate;
+            date.setMilliseconds(0);
+            date.setMinutes(0);
+            date.setSeconds(0);
+            date.setHours(0);
             if(!map.has(projectName)){
                 map.set(projectName, buffer.slice());
+            }
+            var index;
+            if(byMonth){
+                index = byMonth.get(Ext.Date.format(date, 'M Y'));
+            }else{
+                index = ~~(date - this.startChartDate + 0.999);
             }
             map.get(projectName)[index]++;
         }
         var chartData = {
-            categories: severity,
+            categories: days,
             series: []
         };
         var colors = [];
-        buff = map.keys();
-        a = buff.next();
+        var buff = map.keys();
+        var a = buff.next();
         var step = 0;
         var numOfStep = map.size;
         while(!a.done){
@@ -205,15 +229,15 @@
 
     _getChartConfig: function () {
         return {
-            chart: {
-                type: 'column'
+            chart:{
+              type: 'column'
             },
             title: {
-                text: 'Escaped Defects by severity overtime(production)'
+                text: 'Escaped Defects Overtime'
             },
             xAxis: {
                 title: {
-                    text: 'Severity'
+                    text: 'Date'
                 }
             },
             yAxis: {
@@ -234,18 +258,8 @@
                 column: {
                     pointPadding: 0.01,
                     borderWidth: 0,
-                    width: 0.2
-                },
-                series: {
-                    marker: {
-                        enabled: false,
-                        states: {
-                            hover: {
-                                enabled: true
-                            }
-                        }
-                    },
-                    groupPadding: 0.05
+                    width: 0.2,
+                    column: false
                 }
             }
         };
