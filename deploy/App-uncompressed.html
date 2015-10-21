@@ -66,10 +66,35 @@
             }
         });
 
+        /*this.projectNameSelect = Ext.create('Rally.ui.combobox.ComboBox',{
+            renderTo: document.body,
+            queryMode: 'local',
+            fieldLabel: 'Show data from Project ',
+            labelAlign: 'right',
+            store: new Ext.data.ArrayStore({
+                id: 0,
+                fields: [
+                    'idText',
+                    'text'
+                ],
+                data: [['All', 'All'],['aa', 'QQQQQQQQQQQ']]
+            }),
+            valueField: 'idText',
+            displayField: 'text',
+            triggerAction: 'all',
+            listeners: {
+                select: function(combobox, records){
+                    this._loadData();
+                },
+                scope: this
+            }
+        });*/
 
         this.startChartDate = start;
         this.endChartDate = end;
         this.myLayout.add(this.endDate);
+        //this.myLayout.add(this.projectNameSelect);
+        //this.projectNameSelect.select('All');
         this._loadData();
     },
 
@@ -100,6 +125,7 @@
             operator: '=',
             value: 'Bug'
         });
+
         var filter = filter1.and(filter2).and(filter3).and(filter4);
         if(this.myStore){
             this.myStore.setFilter(filter);
@@ -125,23 +151,25 @@
 
     _createChart: function(myStore){
         //console.log(this.startChartDate, this.endChartDate);
-        var buffer = [];
+        var bufferArrya = [];
         var days = [];
         var countDay  =  ~~((this.endChartDate - this.startChartDate)/1000/60/60/24 + 0.5);
         var byMonth;
         var inc = 0;
         var bufferDay = this.startChartDate;
+        var indexInDaysArray = new Map();
         if(countDay >= 240){
             byMonth = new Map();
             for(;Ext.Date.format(bufferDay, 'M Y') != Ext.Date.format(this.endChartDate, 'M Y'); bufferDay = Ext.Date.add(bufferDay, Ext.Date.MONTH, 1)){
                 var string = Ext.Date.format(bufferDay, 'M Y');
                 byMonth.set(string, days.length);
                 days.push(string);
-                buffer.push(0);
+                bufferArrya.push(0);
             }
             byMonth.set(Ext.Date.format(bufferDay, 'M Y'), days.length);
             days.push(Ext.Date.format(bufferDay, 'M Y'));
-            buffer.push(0);
+            bufferArrya.push(0);
+            indexInDaysArray = new Map(byMonth);
         }else {
             if (countDay > 31) {
                 var count;
@@ -158,67 +186,90 @@
                 inc = 1;
             }
             for(;Ext.Date.format(bufferDay, 'Ymd') < Ext.Date.format(this.endChartDate, 'Ymd'); bufferDay = Ext.Date.add(bufferDay, Ext.Date.DAY, inc)){
-                days.push(Ext.Date.format(bufferDay, 'M d'));
-                buffer.push(0);
+                var string = Ext.Date.format(bufferDay, 'M d');
+                indexInDaysArray.set(string, days.length);
+                days.push(string);
+                bufferArrya.push(0);
             }
+            indexInDaysArray.set(Ext.Date.format(this.endChartDate, 'M d'), days.length);
             days.push(Ext.Date.format(this.endChartDate, 'M d'));
-            buffer.push(0);
+            bufferArrya.push(0);
 
         }
 
         //console.log(buffer, severity);
         var map = new Map();
 
-        //console.log(myStore.getCount());
+        console.log(myStore.getCount(), days, days.length, inc);
         this.startChartDate.setHours(0);
         this.startChartDate.setMilliseconds(0);
         this.startChartDate.setMinutes(0);
         this.startChartDate.setSeconds(0);
+        var teams = new Set();
+        teams.add('IL Finance Team');
+        teams.add('IL Ops Team');
+        teams.add('Salesforce Team');
         for(var i = 0; i < myStore.getCount(); ++i){
             var el = myStore.getAt(i).data;
             console.log(i, el);
             var projectName = el.Project.Name;
+            if(teams.has(projectName)) continue;
             var date = el.CreationDate;
             date.setMilliseconds(0);
             date.setMinutes(0);
             date.setSeconds(0);
             date.setHours(0);
             if(!map.has(projectName)){
-                map.set(projectName, buffer.slice());
+                map.set(projectName, bufferArrya.slice());
             }
             var index;
             if(byMonth){
                 index = byMonth.get(Ext.Date.format(date, 'M Y'));
             }else{
-                index = ~~(date - this.startChartDate + 0.999);
+                index = ~~((date - this.startChartDate)/1000/60/60/24/inc + 0.999);
             }
+            console.log(index);
             map.get(projectName)[index]++;
         }
         var chartData = {
             categories: days,
             series: []
         };
+        //var dataForSelect = [['All', 'All']];
+        //var selectedProjetc = this.projectNameSelect.getRecord().get('text');
+        //var isAll = selectedProjetc == 'All';
+        this.allArraySum = bufferArrya.slice();
         var colors = [];
         var buff = map.keys();
         var a = buff.next();
         var step = 0;
+        var point = 0;
         var numOfStep = map.size;
+        var priority = map.size-1;
         while(!a.done){
-            var buffer = {
-                name: a.value,
-                data: map.get(a.value)
-            };
-            chartData.series.push(buffer);
-            colors.push(this._createColor(numOfStep, step++));
+            //dataForSelect.push([a.value,a.value]);
+            //if(isAll || selectedProjetc == a.value){
+                var array = this._sumOfArrayForChart(map.get(a.value));
+                var buffer = {
+                    name: a.value,
+                    data: array,
+                    pointPadding: -1,
+                    pointPlacement: 0,
+                    zIndex: priority--
+                };
+                chartData.series.push(buffer);
+                colors.push(this._createColor(numOfStep, step++));
+            //}
             a = buff.next();
         }
-        //console.log(chartData, colors);
+        //this.projectNameSelect.store.data = dataForSelect;
+        console.log(chartData, colors);
         //this.remove(this.chart);
         ////console.log(this.chart);
         this.chart = Ext.create('Rally.ui.chart.Chart', {
             xtype: 'rallychart',
             chartData: chartData,
-            chartConfig: this._getChartConfig(),
+            chartConfig: this._getChartConfig(map, indexInDaysArray),
             chartColors: colors
         });
 
@@ -227,15 +278,35 @@
 
     },
 
-    _getChartConfig: function () {
+    _sumOfArrayForChart: function(arrya){
+        for(var i in  arrya){
+            //if(arrya[i] != 0){
+                arrya[i] += this.allArraySum[i];
+                this.allArraySum[i] = arrya[i];
+         //   }
+        }
+
+        return arrya;
+    },
+
+    _getChartConfig: function (map, indexInDaysArray) {
         return {
             chart:{
-              type: 'column'
+              type: 'area'
             },
             title: {
                 text: 'Escaped Defects Overtime'
             },
             xAxis: {
+                labels: {
+                    rotation: -45,
+                    align: 'right',
+                    style: {
+                        fontSize: '11px',
+                        fontFamily: 'Verdana, sans-serif'
+                    }
+                },
+                tickmarkPlacement: 'on',
                 title: {
                     text: 'Date'
                 }
@@ -258,8 +329,7 @@
                 column: {
                     pointPadding: 0.01,
                     borderWidth: 0,
-                    width: 0.2,
-                    column: false
+                    width: 0.2
                 }
             }
         };
