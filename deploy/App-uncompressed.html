@@ -168,7 +168,7 @@
             var el = myStore.getAt(i).data;
             var index = this.indexSeverity.get(el.Severity);
             var projectName = el.Project.Name;
-            if(!teams.has(projectName)) continue;
+            if(teams.has(projectName)) continue;
             if(!map.has(projectName)){
                 map.set(projectName, buffer.slice());
             }
@@ -213,7 +213,7 @@
                 type: 'column'
             },
             title: {
-                text: 'Escaped Defects by severity overtime (production) Internal App'
+                text: 'Escaped Defects by severity overtime (production) Product'
             },
             xAxis: {
                 title: {
