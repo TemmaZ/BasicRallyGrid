@@ -147,15 +147,19 @@ Ext.define('CustomApp', {
             severity.push(a.value);
             a = buff.next();
         }
-        //console.log(buffer, severity);
+
+        var teams = new Set();
+        teams.add('IL Finance Team');
+        teams.add('IL Ops Team');
+        teams.add('Salesforce Team');
         var map = new Map();
 
         //console.log(myStore.getCount());
         for(var i = 0; i < myStore.getCount(); ++i){
             var el = myStore.getAt(i).data;
-            console.log(i, el);
             var index = this.indexSeverity.get(el.Severity);
             var projectName = el.Project.Name;
+            if(!teams.has(projectName)) continue;
             if(!map.has(projectName)){
                 map.set(projectName, buffer.slice());
             }
@@ -200,7 +204,7 @@ Ext.define('CustomApp', {
                 type: 'column'
             },
             title: {
-                text: 'Escaped Defects by severity overtime(production)'
+                text: 'Escaped Defects by severity overtime (production) Internal App'
             },
             xAxis: {
                 title: {
