@@ -153,7 +153,7 @@ Ext.define('CustomApp', {
             var el = myStore.getAt(i).data;
             var index = this.indexSeverity.get(el.Severity);
             var projectName = el.Project.Name;
-            if(!teams.has(projectName)) continue;
+            if(teams.has(projectName)) continue;
             if(!map.has(projectName)){
                 map.set(projectName, buffer.slice());
             }
@@ -198,7 +198,7 @@ Ext.define('CustomApp', {
                 type: 'column'
             },
             title: {
-                text: 'Open Defects by Severity overtime (non production) Internal Apps'
+                text: 'Open Defects by Severity overtime (non production) Product'
             },
             xAxis: {
                 title: {
