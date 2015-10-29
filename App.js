@@ -56,31 +56,6 @@ Ext.define('CustomApp', {
                 scope: this
             }
         });
-
-        /*this.projectNameSelect = Ext.create('Rally.ui.combobox.ComboBox',{
-            renderTo: document.body,
-            queryMode: 'local',
-            fieldLabel: 'Show data from Project ',
-            labelAlign: 'right',
-            store: new Ext.data.ArrayStore({
-                id: 0,
-                fields: [
-                    'idText',
-                    'text'
-                ],
-                data: [['All', 'All'],['aa', 'QQQQQQQQQQQ']]
-            }),
-            valueField: 'idText',
-            displayField: 'text',
-            triggerAction: 'all',
-            listeners: {
-                select: function(combobox, records){
-                    this._loadData();
-                },
-                scope: this
-            }
-        });*/
-
         this.startChartDate = start;
         this.endChartDate = end;
         this.myLayout.add(this.endDate);
@@ -95,7 +70,6 @@ Ext.define('CustomApp', {
         }
         this.startDate.setDisabled(true);
         this.endDate.setDisabled(true);
-        //console.log(Ext.Date.format(this.endChartDate, 'Y-m-d'));
         var filter1 = Ext.create('Rally.data.wsapi.Filter',{
             property: 'CreationDate',
             operator: '>=',
@@ -141,7 +115,6 @@ Ext.define('CustomApp', {
     },
 
     _createChart: function(myStore){
-        //console.log(this.startChartDate, this.endChartDate);
         var bufferArrya = [];
         var days = [];
         var countDay  =  ~~((this.endChartDate - this.startChartDate)/1000/60/60/24 + 0.5);
@@ -188,7 +161,6 @@ Ext.define('CustomApp', {
 
         }
 
-        //console.log(buffer, severity);
         var map = new Map();
 
         console.log(myStore.getCount(), days, days.length, inc);
@@ -200,6 +172,7 @@ Ext.define('CustomApp', {
         teams.add('IL Finance Team');
         teams.add('IL Ops Team');
         teams.add('Salesforce Team');
+        var arrayToMany = bufferArrya.slice();
         for(var i = 0; i < myStore.getCount(); ++i){
             var el = myStore.getAt(i).data;
             console.log(i, el);
@@ -221,42 +194,42 @@ Ext.define('CustomApp', {
             }
             console.log(index);
             map.get(projectName)[index]++;
+            arrayToMany[index]++;
         }
         var chartData = {
             categories: days,
             series: []
         };
-        //var dataForSelect = [['All', 'All']];
-        //var selectedProjetc = this.projectNameSelect.getRecord().get('text');
-        //var isAll = selectedProjetc == 'All';
+        var s = 1;
+        for(var i = 0; i < s; ++i) map.set(i, arrayToMany.slice());
         this.allArraySum = bufferArrya.slice();
         var colors = [];
         var buff = map.keys();
         var a = buff.next();
         var step = 0;
-        var point = 0;
         var numOfStep = map.size;
+        var increment = 1 / numOfStep;
+        var point = 0.18;
         var priority = map.size-1;
         while(!a.done){
-            //dataForSelect.push([a.value,a.value]);
-            //if(isAll || selectedProjetc == a.value){
-                var array = this._sumOfArrayForChart(map.get(a.value));
-                var buffer = {
-                    name: a.value,
-                    data: array,
-                    pointPadding: -1,
-                    pointPlacement: 0,
-                    zIndex: priority--
-                };
-                chartData.series.push(buffer);
-                colors.push(this._createColor(numOfStep, step++));
-            //}
+            var buffer = {
+                name: a.value,
+                data: map.get(a.value),
+                pointPadding: -1,
+                pointPlacement: point
+                //gutter: -1,
+                //zIndex: priority--
+            };
+            point -= 0.36;
+            chartData.series.push(buffer);
+            colors.push(this._createColor(numOfStep, step++));
             a = buff.next();
         }
-        //this.projectNameSelect.store.data = dataForSelect;
+        for(var i = numOfStep - 1; i > -1; --i){
+            var array = this._sumOfArrayForChart(chartData.series[i].data);
+            chartData.series[i].data = array;
+        }
         console.log(chartData, colors);
-        //this.remove(this.chart);
-        ////console.log(this.chart);
         this.chart = Ext.create('Rally.ui.chart.Chart', {
             xtype: 'rallychart',
             chartData: chartData,
@@ -271,10 +244,10 @@ Ext.define('CustomApp', {
 
     _sumOfArrayForChart: function(arrya){
         for(var i in  arrya){
-            //if(arrya[i] != 0){
+            if(arrya[i] != 0){
                 arrya[i] += this.allArraySum[i];
                 this.allArraySum[i] = arrya[i];
-         //   }
+            }
         }
 
         return arrya;
@@ -283,7 +256,7 @@ Ext.define('CustomApp', {
     _getChartConfig: function (map, indexInDaysArray) {
         return {
             chart:{
-              type: 'area'
+              type: 'column'
             },
             title: {
                 text: 'Escaped Defects Overtime'
