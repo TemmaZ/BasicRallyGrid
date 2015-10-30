@@ -14,18 +14,18 @@ Ext.define('CustomApp', {
         var filters = [];
         filters.push(Ext.create('Rally.data.wsapi.Filter',{
             property: 'Environment',
-            operator: '=',
+            operator: '!=',
             value: 'Production'
+        }));
+        filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'Environment',
+            operator: '!=',
+            value: 'DR Site'
         }));
         filters.push(Ext.create('Rally.data.wsapi.Filter',{
             property: 'c_IssueType',
             operator: '=',
             value: 'Bug'
-        }));
-        filters.push(Ext.create('Rally.data.wsapi.Filter',{
-            property: 'Resolution',
-            operator: '!=',
-            value: 'Wad'
         }));
         filters.push(Ext.create('Rally.data.wsapi.Filter',{
             property: 'Resolution',
@@ -41,6 +41,12 @@ Ext.define('CustomApp', {
             property: 'Resolution',
             operator: '!=',
             value: 'Cannot Replicate'
+        }));
+
+        filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'State',
+            operator: '!=',
+            value: 'Close'
         }));
 
         this.myFilter = filters[0];
@@ -216,7 +222,7 @@ Ext.define('CustomApp', {
               type: 'column'
             },
             title: {
-                text: 'Escaped Defects by Severity Overtime (producction defects)'
+                text: 'Open Defects by Severity Overtime (non-production defects)'
             },
             xAxis: {
                 labels: {
