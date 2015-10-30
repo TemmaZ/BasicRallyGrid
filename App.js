@@ -11,8 +11,60 @@ Ext.define('CustomApp', {
             }
         });
         this.add(this.myLayout);
+        var filters = [];
+        filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'Environment',
+            operator: '=',
+            value: 'Production'
+        }));
+        filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'c_IssueType',
+            operator: '=',
+            value: 'Bug'
+        }));
+        filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'Resolution',
+            operator: '!=',
+            value: 'Wad'
+        }));
+        filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'Resolution',
+            operator: '!=',
+            value: 'Duplicate'
+        }));
+        filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'Resolution',
+            operator: '!=',
+            value: 'Future Enhancement'
+        }));
+        filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'Resolution',
+            operator: '!=',
+            value: 'Cannot Replicate'
+        }));
 
-        this._loadDateForChart();
+        this.myFilter = filters[0];
+        for(var i = 1; i < filters.length; ++i) this.myFilter = this.myFilter.and(filters[i]);
+
+        var cb = Ext.create('Rally.ui.combobox.FieldValueComboBox',{
+            model: 'Defect',
+            field: 'Severity',
+            listeners: {
+                ready: function (combobox) {
+                    var arrayData = cb.getStore();
+                    arrayData = arrayData.data.items;
+                    this.categoriesForChart = [];
+                    for(var i = 0; i < arrayData.length; ++i) {
+                        var value = arrayData[i].data.value;
+                        this.categoriesForChart.push(value);
+                    }
+                    this._loadDateForChart();
+                },
+                scope: this
+            }
+        });
+        this.add(cb);
+        cb.setVisible(false);
 
     },
 
@@ -59,8 +111,6 @@ Ext.define('CustomApp', {
         this.startChartDate = start;
         this.endChartDate = end;
         this.myLayout.add(this.endDate);
-        //this.myLayout.add(this.projectNameSelect);
-        //this.projectNameSelect.select('All');
         this._loadData();
     },
 
@@ -68,38 +118,26 @@ Ext.define('CustomApp', {
         if (this.chart) {
             this.remove(this.chart);
         }
-        this.startDate.setDisabled(true);
-        this.endDate.setDisabled(true);
-        var filter1 = Ext.create('Rally.data.wsapi.Filter',{
+        var startFilter = Ext.create('Rally.data.wsapi.Filter',{
             property: 'CreationDate',
             operator: '>=',
             value: Ext.Date.format(this.startChartDate, 'Y-m-d')
         });
-        var filter2 = Ext.create('Rally.data.wsapi.Filter',{
+        var endFilter = Ext.create('Rally.data.wsapi.Filter',{
             property: 'CreationDate',
             operator: '<=',
             value: Ext.Date.format(this.endChartDate, 'Y-m-d')
         });
-        var filter3 = Ext.create('Rally.data.wsapi.Filter',{
-            property: 'Environment',
-            operator: '=',
-            value: 'Production'
-        });
-        var filter4 = Ext.create('Rally.data.wsapi.Filter',{
-            property: 'c_IssueType',
-            operator: '=',
-            value: 'Bug'
-        });
 
-        var filter = filter1.and(filter2).and(filter3).and(filter4);
+        var needFilter = this.myFilter.and(startFilter).and(endFilter);
         if(this.myStore){
-            this.myStore.setFilter(filter);
+            this.myStore.setFilter(needFilter);
             this.myStore.load();
         }else {
             this.myStore = Ext.create('Rally.data.wsapi.Store', {
                 model: 'Defect',
                 autoLoad: true,
-                filters: filter,
+                filters: needFilter,
                 listeners: {
                     load: function (myStore, myData, success) {
                         this._createChart(myStore);
@@ -109,8 +147,6 @@ Ext.define('CustomApp', {
                 limit: Infinity
             });
         }
-        this.startDate.setDisabled(false);
-        this.endDate.setDisabled(false);
 
     },
 
@@ -129,31 +165,18 @@ Ext.define('CustomApp', {
         days.push(Ext.Date.format(bufferDay, 'M Y'));
         bufferArrya.push(0);
 
-
         var map = new Map();
-
+        for(var i = 0; i < this.categoriesForChart.length; ++i) {
+            map.set(this.categoriesForChart[i], bufferArrya.slice());
+        }
         console.log(myStore.getCount(), days, days.length);
-        this.startChartDate.setHours(0);
-        this.startChartDate.setMilliseconds(0);
-        this.startChartDate.setMinutes(0);
-        this.startChartDate.setSeconds(0);
-        var arrayToMany = bufferArrya.slice();
-        for(var i = 0; i < myStore.getCount(); ++i){
+        for(i = 0; i < myStore.getCount(); ++i){
             var el = myStore.getAt(i).data;
             console.log(i, el);
-            var projectName = el.Project.Name;
             var date = el.CreationDate;
-            date.setMilliseconds(0);
-            date.setMinutes(0);
-            date.setSeconds(0);
-            date.setHours(0);
-            if(!map.has(projectName)){
-                map.set(projectName, bufferArrya.slice());
-            }
             var index = byMonth.get(Ext.Date.format(date, 'M Y'));
             console.log(index);
-            map.get(projectName)[index]++;
-            arrayToMany[index]++;
+            map.get(el.Severity)[index]++;
         }
         var chartData = {
             categories: days,
@@ -162,9 +185,6 @@ Ext.define('CustomApp', {
 
         var buff = map.keys();
         var a = buff.next();
-        var s = 1;
-        for(var i = 0; i < s; ++i) map.set(i, map.get(a.value));
-        this.allArraySum = bufferArrya.slice();
         var colors = [];
         var step = 0;
         var numOfStep = map.size;
@@ -180,7 +200,6 @@ Ext.define('CustomApp', {
         console.log(chartData, colors);
         this.chart = Ext.create('Rally.ui.chart.Chart', {
             xtype: 'rallychart',
-            //charType: 'Stacked-bar',
             chartData: chartData,
             chartConfig: this._getChartConfig(),
             chartColors: colors
@@ -194,10 +213,10 @@ Ext.define('CustomApp', {
     _getChartConfig: function () {
         return {
             chart: {
-              type: 'staggered'
+              type: 'column'
             },
             title: {
-                text: 'Escaped Defects Overtime'
+                text: 'Escaped Defects by Severity Overtime (producction defects)'
             },
             xAxis: {
                 labels: {
@@ -228,10 +247,8 @@ Ext.define('CustomApp', {
                 useHTML: true
             },
             plotOptions: {
-                column: {
-                    pointPadding: 0.01,
-                    borderWidth: 0,
-                    width: 0.2
+                series: {
+                    stacking: 'normal'
                 }
             }
         };
