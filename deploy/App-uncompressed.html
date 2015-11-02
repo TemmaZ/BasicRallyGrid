@@ -85,7 +85,9 @@
 
     _loadDateForChart: function(){
         var end = new Date();
-        var start = Ext.Date.add(end, Ext.Date.MONTH, -1);
+        var start = new Date();
+        start.setMonth(6,13);
+        if(start > end) start = Ext.Date.add(end, Ext.Date.YEAR, -1);
 
         this.startDate = Ext.create('Ext.form.field.Date',{
             fieldLabel: 'Start Date:',
