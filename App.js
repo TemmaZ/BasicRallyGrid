@@ -69,7 +69,7 @@ Ext.define('CustomApp', {
     },
 
     _loadDateForChart: function(){
-        this.iterComboBox  = Ext.create('Rally.ui.combobox.IterationComboBox',{
+        this.iterComboBox  = Ext.create('Rally.ui.combobox.ReleaseComboBox',{
             listeners:{
                 ready: function(comobox){
                     this._loadData();
@@ -88,8 +88,8 @@ Ext.define('CustomApp', {
             this.remove(this.chart);
         }
         var selected = this.iterComboBox.getRecord().data;
-        this.startChartDate = selected.StartDate;
-        this.endChartDate = selected.EndDate;
+        this.startChartDate = selected.ReleaseStartDate;
+        this.endChartDate = selected.ReleaseDate;
         var status = Ext.create('Rally.data.wsapi.Filter',{
             property: 'State',
             operator: '!=',
@@ -98,17 +98,17 @@ Ext.define('CustomApp', {
         var closeFilter = Ext.create('Rally.data.wsapi.Filter',{
             property: 'ClosedDate',
             operator: '>',
-            value: Ext.Date.format(selected.EndDate, 'Y-m-d')
+            value: Ext.Date.format(this.endChartDate, 'Y-m-d')
         });
         var startFilter = Ext.create('Rally.data.wsapi.Filter',{
             property: 'CreationDate',
             operator: '>=',
-            value: Ext.Date.format(selected.StartDate, 'Y-m-d')
+            value: Ext.Date.format(this.startChartDate , 'Y-m-d')
         });
         var endFilter = Ext.create('Rally.data.wsapi.Filter',{
             property: 'CreationDate',
             operator: '<=',
-            value: Ext.Date.format(selected.EndDate, 'Y-m-d')
+            value: Ext.Date.format(this.endChartDate, 'Y-m-d')
         });
         var someFilter = status.or(closeFilter);
         var needFilter = this.myFilter.and(startFilter).and(endFilter).and(someFilter);
