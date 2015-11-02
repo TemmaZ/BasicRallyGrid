@@ -52,12 +52,6 @@
             value: 'Cannot Replicate'
         }));
 
-        filters.push(Ext.create('Rally.data.wsapi.Filter',{
-            property: 'State',
-            operator: '!=',
-            value: 'Close'
-        }));
-
         this.myFilter = filters[0];
         for(var i = 1; i < filters.length; ++i) this.myFilter = this.myFilter.and(filters[i]);
 
@@ -84,69 +78,50 @@
     },
 
     _loadDateForChart: function(){
-        var end = new Date();
-        var start = new Date();
-        start.setMonth(6,13);
-        if(start > end) start = Ext.Date.add(end, Ext.Date.YEAR, -1);
-
-        this.startDate = Ext.create('Ext.form.field.Date',{
-            fieldLabel: 'Start Date:',
-            labelAlign: 'right',
-            value: start,
-            maxValue: end,
-            listeners: {
+        this.iterComboBox  = Ext.create('Rally.ui.combobox.IterationComboBox',{
+            listeners:{
+                ready: function(comobox){
+                    this._loadData();
+                },
                 select: function(combobox, records){
-                    this.startChartDate = records;
-                    if(this.endDate){
-                        this.endDate.setMinValue(records);
-                    }
                     this._loadData();
                 },
                 scope: this
             }
         });
-
-        this.myLayout.add(this.startDate);
-
-        this.endDate = Ext.create('Ext.form.field.Date',{
-            fieldLabel: 'End Date:',
-            labelAlign: 'right',
-            minValue: start,
-            value: end,
-            maxValue: end,
-            listeners: {
-                select: function(combobox, records){
-                    this.endChartDate = records;
-                    if(this.startDate){
-                        this.startDate.setMaxValue(records);
-                    }
-                    this._loadData();
-                },
-                scope: this
-            }
-        });
-        this.startChartDate = start;
-        this.endChartDate = end;
-        this.myLayout.add(this.endDate);
-        this._loadData();
+        this.myLayout.add(this.iterComboBox);
     },
 
     _loadData: function(){
         if (this.chart) {
             this.remove(this.chart);
         }
+        var selected = this.iterComboBox.getRecord().data;
+        this.startChartDate = selected.StartDate;
+        this.endChartDate = selected.EndDate;
+        var status = Ext.create('Rally.data.wsapi.Filter',{
+            property: 'State',
+            operator: '!=',
+            value: 'Close'
+        });
+        var closeFilter = Ext.create('Rally.data.wsapi.Filter',{
+            property: 'ClosedDate',
+            operator: '>',
+            value: Ext.Date.format(selected.EndDate, 'Y-m-d')
+        });
         var startFilter = Ext.create('Rally.data.wsapi.Filter',{
             property: 'CreationDate',
             operator: '>=',
-            value: Ext.Date.format(this.startChartDate, 'Y-m-d')
+            value: Ext.Date.format(selected.StartDate, 'Y-m-d')
         });
         var endFilter = Ext.create('Rally.data.wsapi.Filter',{
             property: 'CreationDate',
             operator: '<=',
-            value: Ext.Date.format(this.endChartDate, 'Y-m-d')
+            value: Ext.Date.format(selected.EndDate, 'Y-m-d')
         });
-
-        var needFilter = this.myFilter.and(startFilter).and(endFilter);
+        var someFilter = status.or(closeFilter);
+        var needFilter = this.myFilter.and(startFilter).and(endFilter).and(someFilter);
+        //console.log(needFilter.toString());
         if(this.myStore){
             this.myStore.setFilter(needFilter);
             this.myStore.load();
@@ -171,28 +146,28 @@
         var bufferArrya = [];
         var days = [];
         var bufferDay = this.startChartDate;
-        var byMonth = new Map();
-        for(;Ext.Date.format(bufferDay, 'M Y') != Ext.Date.format(this.endChartDate, 'M Y'); bufferDay = Ext.Date.add(bufferDay, Ext.Date.MONTH, 1)){
-            var string = Ext.Date.format(bufferDay, 'M Y');
-            byMonth.set(string, days.length);
+        var byDay = new Map();
+        for(;Ext.Date.format(bufferDay, 'M d') != Ext.Date.format(this.endChartDate, 'M d'); bufferDay = Ext.Date.add(bufferDay, Ext.Date.DAY, 1)){
+            var string = Ext.Date.format(bufferDay, 'M d');
+            byDay.set(string, days.length);
             days.push(string);
             bufferArrya.push(0);
         }
-        byMonth.set(Ext.Date.format(bufferDay, 'M Y'), days.length);
-        days.push(Ext.Date.format(bufferDay, 'M Y'));
+        byDay.set(Ext.Date.format(bufferDay, 'M d'), days.length);
+        days.push(Ext.Date.format(bufferDay, 'M d'));
         bufferArrya.push(0);
 
         var map = new Map();
         for(var i = 0; i < this.categoriesForChart.length; ++i) {
             map.set(this.categoriesForChart[i], bufferArrya.slice());
         }
-        console.log(myStore.getCount(), days, days.length);
+        //console.log(myStore.getCount(), days, days.length);
         for(i = 0; i < myStore.getCount(); ++i){
             var el = myStore.getAt(i).data;
-            console.log(i, el);
+            //console.log(i, el);
             var date = el.CreationDate;
-            var index = byMonth.get(Ext.Date.format(date, 'M Y'));
-            console.log(index);
+            var index = byDay.get(Ext.Date.format(date, 'M d'));
+            //console.log(index);
             map.get(el.Severity)[index]++;
         }
         var chartData = {
@@ -214,7 +189,7 @@
             colors.push(this._createColor(numOfStep, step++));
             a = buff.next();
         }
-        console.log(chartData, colors);
+        //console.log(chartData, colors);
         this.chart = Ext.create('Rally.ui.chart.Chart', {
             xtype: 'rallychart',
             chartData: chartData,
@@ -233,7 +208,7 @@
               type: 'column'
             },
             title: {
-                text: 'Open Defects by Severity Overtime (non-production defects)'
+                text: 'Open Defects by Severity Overtime by Sprint/Release (non-production)'
             },
             xAxis: {
                 labels: {
