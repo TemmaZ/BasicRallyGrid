@@ -177,13 +177,13 @@ Ext.define('CustomApp', {
         for(var i = 0; i < this.categoriesForChart.length; ++i) {
             map.set(this.categoriesForChart[i], bufferArrya.slice());
         }
-        console.log(myStore.getCount(), days, days.length);
+        //console.log(myStore.getCount(), days, days.length);
         for(i = 0; i < myStore.getCount(); ++i){
             var el = myStore.getAt(i).data;
-            console.log(i, el);
+            //console.log(i, el);
             var date = el.CreationDate;
             var index = byMonth.get(Ext.Date.format(date, 'M Y'));
-            console.log(index);
+            //console.log(index);
             map.get(el.Severity)[index]++;
         }
         var chartData = {
@@ -205,7 +205,7 @@ Ext.define('CustomApp', {
             colors.push(this._createColor(numOfStep, step++));
             a = buff.next();
         }
-        console.log(chartData, colors);
+        //console.log(chartData, colors);
         this.chart = Ext.create('Rally.ui.chart.Chart', {
             xtype: 'rallychart',
             chartData: chartData,
