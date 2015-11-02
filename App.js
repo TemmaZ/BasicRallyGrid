@@ -43,12 +43,6 @@ Ext.define('CustomApp', {
             value: 'Cannot Replicate'
         }));
 
-        filters.push(Ext.create('Rally.data.wsapi.Filter',{
-            property: 'State',
-            operator: '!=',
-            value: 'Close'
-        }));
-
         this.myFilter = filters[0];
         for(var i = 1; i < filters.length; ++i) this.myFilter = this.myFilter.and(filters[i]);
 
@@ -126,18 +120,28 @@ Ext.define('CustomApp', {
         if (this.chart) {
             this.remove(this.chart);
         }
+        var status = Ext.create('Rally.data.wsapi.Filter',{
+            property: 'State',
+            operator: '!=',
+            value: 'Close'
+        });
+        var closeFilter = Ext.create('Rally.data.wsapi.Filter',{
+            property: 'ClosedDate',
+            operator: '>',
+            value: Ext.Date.format(this.endChartDate, 'Y-m-d')
+        });
         var startFilter = Ext.create('Rally.data.wsapi.Filter',{
             property: 'CreationDate',
             operator: '>=',
-            value: Ext.Date.format(this.startChartDate, 'Y-m-d')
+            value: Ext.Date.format(this.startChartDate , 'Y-m-d')
         });
         var endFilter = Ext.create('Rally.data.wsapi.Filter',{
             property: 'CreationDate',
             operator: '<=',
             value: Ext.Date.format(this.endChartDate, 'Y-m-d')
         });
-
-        var needFilter = this.myFilter.and(startFilter).and(endFilter);
+        var someFilter = status.or(closeFilter);
+        var needFilter = this.myFilter.and(startFilter).and(endFilter).and(someFilter);
         if(this.myStore){
             this.myStore.setFilter(needFilter);
             this.myStore.load();
