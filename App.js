@@ -58,7 +58,7 @@ Ext.define('CustomApp', {
                         var value = arrayData[i].data.value;
                         this.categoriesForChart.push(value);
                     }
-                    this._loadDateForChart();
+                    this._loadStartDateForChart();
                 },
                 scope: this
             }
@@ -68,8 +68,10 @@ Ext.define('CustomApp', {
 
     },
 
-    _loadDateForChart: function(){
+    _loadStartDateForChart: function(){
         this.releaseStartComboBox  = Ext.create('Rally.ui.combobox.ReleaseComboBox',{
+            fieldLabel: 'Start Release:',
+            labelAlign: 'right',
             listeners:{
                 ready: function(combobox){
                     this.arrayOfReleases = this.releaseStartComboBox.getStore().data.items;
@@ -77,15 +79,23 @@ Ext.define('CustomApp', {
                     for(var i = 0; i < this.arrayOfReleases.length; ++i){
                         this.indexOfRelease.set(this.arrayOfReleases[i].data.Name, i);
                     }
+                    this._loadEndDateForChart();
                 },
                 select: function(combobox, records){
                     this._loadData();
                 },
                 scope: this
-            }
+            },
+            labelWidth: 100,
+            width: 300
         });
         this.myLayout.add(this.releaseStartComboBox);
+    },
+
+    _loadEndDateForChart: function(){
         this.releaseEndComboBox  = Ext.create('Rally.ui.combobox.ReleaseComboBox',{
+            fieldLabel: 'End Release:',
+            labelAlign: 'right',
             listeners:{
                 ready: function(comobox){
                     this._loadData();
@@ -94,7 +104,9 @@ Ext.define('CustomApp', {
                     this._loadData();
                 },
                 scope: this
-            }
+            },
+            labelWidth: 100,
+            width: 300
         });
         this.myLayout.add(this.releaseEndComboBox);
     },
@@ -130,23 +142,23 @@ Ext.define('CustomApp', {
         });
         var needFilter = this.myFilter.and(startFilter).and(endFilter).and(someFilter);
             //console.log(needFilter.toString());
-            if(this.myStore){
-                this.myStore.setFilter(needFilter);
-                this.myStore.load();
-            }else {
-                this.myStore = Ext.create('Rally.data.wsapi.Store', {
-                    model: 'Defect',
-                    autoLoad: true,
-                    filters: needFilter,
-                    listeners: {
-                        load: function (myStore, myData, success) {
-                            this._createChart(myStore)
-                        },
-                        scope: this
+        if(this.myStore){
+            this.myStore.setFilter(needFilter);
+            this.myStore.load();
+        }else {
+            this.myStore = Ext.create('Rally.data.wsapi.Store', {
+                model: 'Defect',
+                autoLoad: true,
+                filters: needFilter,
+                listeners: {
+                    load: function (myStore, myData, success) {
+                        this._createChart(myStore)
                     },
-                    limit: Infinity
-                });
-            }
+                    scope: this
+                },
+                limit: Infinity
+            });
+        }
 
     },
     _createChart: function(store){
@@ -168,7 +180,7 @@ Ext.define('CustomApp', {
         }
         for(var i = 0; i < store.getCount(); ++i){
             var el = store.getAt(i).data;
-            //sconsole.log(el.Release);
+            //console.log(el.Release);
             var date = el.CreationDate;
             var index = -1;
             for(var a = 0; a < this.datesOfReleases.length; ++a){
@@ -179,7 +191,7 @@ Ext.define('CustomApp', {
             }
             if(index == -1) continue;
             //console.log(index);
-            this.myMap.get(el.Severity)[index]++;
+            (this.myMap.get(el.Severity))[index]++;
         }
 
         var chartData = {
