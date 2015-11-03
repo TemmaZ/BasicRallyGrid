@@ -69,7 +69,23 @@ Ext.define('CustomApp', {
     },
 
     _loadDateForChart: function(){
-        this.iterComboBox  = Ext.create('Rally.ui.combobox.ReleaseComboBox',{
+        this.releaseStartComboBox  = Ext.create('Rally.ui.combobox.ReleaseComboBox',{
+            listeners:{
+                ready: function(combobox){
+                    this.arrayOfReleases = this.releaseStartComboBox.getStore().data.items;
+                    this.indexOfRelease = new Map();
+                    for(var i = 0; i < this.arrayOfReleases.length; ++i){
+                        this.indexOfRelease.set(this.arrayOfReleases[i].data.Name, i);
+                    }
+                },
+                select: function(combobox, records){
+                    this._loadData();
+                },
+                scope: this
+            }
+        });
+        this.myLayout.add(this.releaseStartComboBox);
+        this.releaseEndComboBox  = Ext.create('Rally.ui.combobox.ReleaseComboBox',{
             listeners:{
                 ready: function(comobox){
                     this._loadData();
@@ -80,16 +96,16 @@ Ext.define('CustomApp', {
                 scope: this
             }
         });
-        this.myLayout.add(this.iterComboBox);
+        this.myLayout.add(this.releaseEndComboBox);
     },
 
     _loadData: function(){
         if (this.chart) {
             this.remove(this.chart);
         }
-        var selected = this.iterComboBox.getRecord().data;
-        this.startChartDate = selected.ReleaseStartDate;
-        this.endChartDate = selected.ReleaseDate;
+        this.endChartDate = this.releaseEndComboBox.getRecord().data.ReleaseDate;
+        this.startChartDate = this.releaseStartComboBox.getRecord().data.ReleaseStartDate;
+
         var status = Ext.create('Rally.data.wsapi.Filter',{
             property: 'State',
             operator: '!=',
@@ -100,6 +116,8 @@ Ext.define('CustomApp', {
             operator: '>',
             value: Ext.Date.format(this.endChartDate, 'Y-m-d')
         });
+        var someFilter = status.or(closeFilter);
+
         var startFilter = Ext.create('Rally.data.wsapi.Filter',{
             property: 'CreationDate',
             operator: '>=',
@@ -110,71 +128,74 @@ Ext.define('CustomApp', {
             operator: '<=',
             value: Ext.Date.format(this.endChartDate, 'Y-m-d')
         });
-        var someFilter = status.or(closeFilter);
         var needFilter = this.myFilter.and(startFilter).and(endFilter).and(someFilter);
-        //console.log(needFilter.toString());
-        if(this.myStore){
-            this.myStore.setFilter(needFilter);
-            this.myStore.load();
-        }else {
-            this.myStore = Ext.create('Rally.data.wsapi.Store', {
-                model: 'Defect',
-                autoLoad: true,
-                filters: needFilter,
-                listeners: {
-                    load: function (myStore, myData, success) {
-                        this._createChart(myStore);
+            //console.log(needFilter.toString());
+            if(this.myStore){
+                this.myStore.setFilter(needFilter);
+                this.myStore.load();
+            }else {
+                this.myStore = Ext.create('Rally.data.wsapi.Store', {
+                    model: 'Defect',
+                    autoLoad: true,
+                    filters: needFilter,
+                    listeners: {
+                        load: function (myStore, myData, success) {
+                            this._createChart(myStore)
+                        },
+                        scope: this
                     },
-                    scope: this
-                },
-                limit: Infinity
-            });
-        }
+                    limit: Infinity
+                });
+            }
 
     },
-
-    _createChart: function(myStore){
-        var bufferArrya = [];
-        var days = [];
-        var bufferDay = this.startChartDate;
-        var byDay = new Map();
-        for(;Ext.Date.format(bufferDay, 'M d') != Ext.Date.format(this.endChartDate, 'M d'); bufferDay = Ext.Date.add(bufferDay, Ext.Date.DAY, 1)){
-            var string = Ext.Date.format(bufferDay, 'M d');
-            byDay.set(string, days.length);
-            days.push(string);
-            bufferArrya.push(0);
+    _createChart: function(store){
+        var startIndex = this.indexOfRelease.get(this.releaseStartComboBox.getRecord().data.Name);
+        var endIndex = this.indexOfRelease.get(this.releaseEndComboBox.getRecord().data.Name);
+        console.log(store);
+        var bufferArray = [];
+        var releaseNames = [];
+        this.datesOfReleases = [];
+        for(var index = startIndex; index >= endIndex; --index){
+            bufferArray.push(0);
+            releaseNames.push(this.arrayOfReleases[index].data.Name);
+            var buff = [this.arrayOfReleases[index].data.ReleaseStartDate, this.arrayOfReleases[index].data.ReleaseDate];
+            this.datesOfReleases.push(buff);
         }
-        byDay.set(Ext.Date.format(bufferDay, 'M d'), days.length);
-        days.push(Ext.Date.format(bufferDay, 'M d'));
-        bufferArrya.push(0);
-
-        var map = new Map();
+        this.myMap = new Map();
         for(var i = 0; i < this.categoriesForChart.length; ++i) {
-            map.set(this.categoriesForChart[i], bufferArrya.slice());
+            this.myMap.set(this.categoriesForChart[i], bufferArray.slice());
         }
-        //console.log(myStore.getCount(), days, days.length);
-        for(i = 0; i < myStore.getCount(); ++i){
-            var el = myStore.getAt(i).data;
-            //console.log(i, el);
+        for(var i = 0; i < store.getCount(); ++i){
+            var el = store.getAt(i).data;
+            //sconsole.log(el.Release);
             var date = el.CreationDate;
-            var index = byDay.get(Ext.Date.format(date, 'M d'));
+            var index = -1;
+            for(var a = 0; a < this.datesOfReleases.length; ++a){
+                if(date >= this.datesOfReleases[a][0] && date <= this.datesOfReleases[a][1]){
+                    index = a;
+                    break;
+                }
+            }
+            if(index == -1) continue;
             //console.log(index);
-            map.get(el.Severity)[index]++;
+            this.myMap.get(el.Severity)[index]++;
         }
+
         var chartData = {
-            categories: days,
+            categories: releaseNames,
             series: []
         };
 
-        var buff = map.keys();
+        var buff = this.myMap.keys();
         var a = buff.next();
         var colors = [];
         var step = 0;
-        var numOfStep = map.size;
+        var numOfStep = this.myMap.size;
         while(!a.done){
             var buffer = {
                 name: a.value,
-                data: map.get(a.value)
+                data: this.myMap.get(a.value)
             };
             chartData.series.push(buffer);
             colors.push(this._createColor(numOfStep, step++));
