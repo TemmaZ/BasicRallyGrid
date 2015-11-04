@@ -25,7 +25,7 @@ Ext.define('CustomApp', {
         filters.push(Ext.create('Rally.data.wsapi.Filter',{
             property: 'Resolution',
             operator: '!=',
-            value: 'Wad'
+            value: 'WAD'
         }));
         filters.push(Ext.create('Rally.data.wsapi.Filter',{
             property: 'Resolution',
