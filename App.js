@@ -123,7 +123,7 @@ Ext.define('CustomApp', {
         var status = Ext.create('Rally.data.wsapi.Filter',{
             property: 'State',
             operator: '!=',
-            value: 'Close'
+            value: 'Closed'
         });
         var closeFilter = Ext.create('Rally.data.wsapi.Filter',{
             property: 'ClosedDate',
