@@ -18,7 +18,7 @@ Ext.define('CustomApp', {
             value: 'Production'
         }));
         filters.push(Ext.create('Rally.data.wsapi.Filter',{
-            property: 'c_IssueType',
+            property: 'IssueType',
             operator: '=',
             value: 'Bug'
         }));
@@ -166,7 +166,7 @@ Ext.define('CustomApp', {
         byMonth.set(Ext.Date.format(bufferDay, 'M Y'), days.length);
         days.push(Ext.Date.format(bufferDay, 'M Y'));
         bufferArrya.push(0);
-
+        //var mapMApaMAp = new Map();
         var map = new Map();
         for(var i = 0; i < this.categoriesForChart.length; ++i) {
             map.set(this.categoriesForChart[i], bufferArrya.slice());
@@ -176,6 +176,13 @@ Ext.define('CustomApp', {
             var el = myStore.getAt(i).data;
             //console.log(i, el);
             var date = el.CreationDate;
+            /*var strDate = Ext.Date.format(date, 'Y-m-d');
+            if(mapMApaMAp.has(strDate)){
+                mapMApaMAp.get(strDate)[0]++;
+            }else{
+                mapMApaMAp.set(strDate,[0]);
+            }*/
+
             var index = byMonth.get(Ext.Date.format(date, 'M Y'));
             //console.log(index);
             map.get(el.Severity)[index]++;
@@ -184,7 +191,8 @@ Ext.define('CustomApp', {
             categories: days,
             series: []
         };
-
+        /*console.log(myStore, myStore.getAt(0));
+        console.log(mapMApaMAp);*/
         var buff = map.keys();
         var a = buff.next();
         var colors = [];
