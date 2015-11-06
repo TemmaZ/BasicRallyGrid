@@ -83,17 +83,15 @@ Ext.define('CustomApp', {
                     this.myArray = [];
                     var mySet = new Set();
                     var day = new Date();
-                    this.indexOfRelease = new Map();
                     for(var i = myStore.getCount() - 1; i > -1; --i){
                         var el = myStore.getAt(i).data;
                         if(mySet.has(el.Name)) continue;
                         this.arrayOfReleases.push(myStore.getAt(i));
                         var string = [];
-                        string.push(el.ReleaseStartDate+"&"+el.ReleaseDate);
+                        string.push(mySet.size);
                         string.push(el.Name);
                         mySet.add(el.Name);
                         this.myArray.push(string);
-                        this.indexOfRelease.set(el.Name,  mySet.size - 1)
                         if(el.ReleaseStartDate <= day && day <= el.ReleaseDate)
                             this.needSelect = string[0];
                     }
@@ -110,7 +108,7 @@ Ext.define('CustomApp', {
 
     _loadEndDateForChart: function(myStore){
         this.releaseEndComboBox  = Ext.create('Rally.ui.combobox.ComboBox',{
-            fieldLabel: 'Start Release:',
+            fieldLabel: 'End Release:',
             labelAlign: 'right',
             store: myStore,
             listeners:{
@@ -138,7 +136,7 @@ Ext.define('CustomApp', {
 
     _loadStartDateForChart: function(myStore){
         this.releaseStartComboBox  = Ext.create('Rally.ui.combobox.ComboBox',{
-            fieldLabel: 'End Release:',
+            fieldLabel: 'Start Release:',
             labelAlign: 'right',
             store: myStore,
             listeners:{
@@ -159,9 +157,12 @@ Ext.define('CustomApp', {
         if (this.chart) {
             this.remove(this.chart);
         }
-        this.endChartDate = new Date(this.releaseEndComboBox.getRecord().data.field1.split("&")[1]);
-        this.startChartDate = new Date(this.releaseStartComboBox.getRecord().data.field1.split("&")[0]);
+        this.endChartDate = this.arrayOfReleases[this.releaseEndComboBox.getRecord().data.field1].data.ReleaseDate;
+        this.startChartDate = this.arrayOfReleases[this.releaseStartComboBox.getRecord().data.field1].data.ReleaseStartDate;
+        this.startIndex = this.releaseStartComboBox.getRecord().data.field1;
+        this.endIndex = this.releaseEndComboBox.getRecord().data.field1;
         console.log(this.endChartDate, this.startChartDate);
+        console.log(this.arrayOfReleases);
 
         var status = Ext.create('Rally.data.wsapi.Filter',{
             property: 'State',
@@ -207,13 +208,11 @@ Ext.define('CustomApp', {
 
     },
     _createChart: function(store){
-        var startIndex = this.indexOfRelease.get(this.releaseStartComboBox.getRecord().data.field2);
-        var endIndex = this.indexOfRelease.get(this.releaseEndComboBox.getRecord().data.field2);
         console.log(store);
         var bufferArray = [];
         var releaseNames = [];
         this.datesOfReleases = [];
-        for(var index = startIndex; index >= endIndex; --index){
+        for(var index = this.startIndex; index >= this.endIndex; --index){
             bufferArray.push(0);
             releaseNames.push(this.arrayOfReleases[index].data.Name);
             var buff = [this.arrayOfReleases[index].data.ReleaseStartDate, this.arrayOfReleases[index].data.ReleaseDate];
@@ -223,6 +222,7 @@ Ext.define('CustomApp', {
         for(var i = 0; i < this.categoriesForChart.length; ++i) {
             this.myMap.set(this.categoriesForChart[i], bufferArray.slice());
         }
+        console.log(store.getAt(0));
         for(var i = 0; i < store.getCount(); ++i){
             var el = store.getAt(i).data;
             //console.log(el.Release);
