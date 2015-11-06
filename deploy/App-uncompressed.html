@@ -67,31 +67,94 @@
                         var value = arrayData[i].data.value;
                         this.categoriesForChart.push(value);
                     }
-                    this._loadStartDateForChart();
+                    this._loadDataForComboBox();
                 },
                 scope: this
             }
         });
         this.add(cb);
         cb.setVisible(false);
-
     },
 
-    _loadStartDateForChart: function(){
-        this.releaseStartComboBox  = Ext.create('Rally.ui.combobox.ReleaseComboBox',{
+    _loadDataForComboBox: function(){
+        var storeForRelease = Ext.create('Rally.data.wsapi.Store', {
+            model: 'Release',
+            filters: [{
+                property: 'Name',
+                operator: 'Contains',
+                value: '(F)'
+            }],
+            listeners: {
+                load: function (myStore, myData, success) {
+                    console.log(myStore);
+                    if(this.releaseStartComboBox) return;
+                    this.arrayOfReleases = [];
+                    this.myArray = [];
+                    var mySet = new Set();
+                    var day = new Date();
+                    this.indexOfRelease = new Map();
+                    for(var i = myStore.getCount() - 1; i > -1; --i){
+                        var el = myStore.getAt(i).data;
+                        if(mySet.has(el.Name)) continue;
+                        this.arrayOfReleases.push(myStore.getAt(i));
+                        var string = [];
+                        string.push(el.ReleaseStartDate+"&"+el.ReleaseDate);
+                        string.push(el.Name);
+                        mySet.add(el.Name);
+                        this.myArray.push(string);
+                        this.indexOfRelease.set(el.Name,  mySet.size - 1)
+                        if(el.ReleaseStartDate <= day && day <= el.ReleaseDate)
+                            this.needSelect = string[0];
+                    }
+                    this._loadEndDateForChart(this.myArray);
+                },
+                scope: this
+            },
+            fetch:["Name","ReleaseStartDate", "ReleaseDate", "ObjectID", "State", "PlannedVelocity"],
+            limit: Infinity
+        });
+        this.first = true;
+        storeForRelease.load();
+    },
+
+    _loadEndDateForChart: function(myStore){
+        this.releaseEndComboBox  = Ext.create('Rally.ui.combobox.ComboBox',{
             fieldLabel: 'Start Release:',
             labelAlign: 'right',
+            store: myStore,
             listeners:{
                 ready: function(combobox){
-                    this.arrayOfReleases = this.releaseStartComboBox.getStore().data.items;
-                    this.indexOfRelease = new Map();
-                    for(var i = 0; i < this.arrayOfReleases.length; ++i){
-                        this.indexOfRelease.set(this.arrayOfReleases[i].data.Name, i);
-                    }
-                    this._loadEndDateForChart();
+                    this._loadStartDateForChart(myStore);
                 },
                 select: function(combobox, records){
-                    this._loadData();
+                    if(!this.first)this._loadData();
+                },
+                scope: this
+            },
+            labelWidth: 100,
+            width: 300
+        });
+        this.myLayout.add(this.releaseEndComboBox);
+        this._myFunction();
+    },
+
+    _myFunction: function(){
+        this.releaseEndComboBox.select(this.needSelect);
+        this.releaseStartComboBox.select(this.needSelect);
+        this.first = false;
+        this._loadData();
+    },
+
+    _loadStartDateForChart: function(myStore){
+        this.releaseStartComboBox  = Ext.create('Rally.ui.combobox.ComboBox',{
+            fieldLabel: 'End Release:',
+            labelAlign: 'right',
+            store: myStore,
+            listeners:{
+                ready: function(comobox){
+                },
+                select: function(combobox, records){
+                    if(!this.first)this._loadData();
                 },
                 scope: this
             },
@@ -101,31 +164,13 @@
         this.myLayout.add(this.releaseStartComboBox);
     },
 
-    _loadEndDateForChart: function(){
-        this.releaseEndComboBox  = Ext.create('Rally.ui.combobox.ReleaseComboBox',{
-            fieldLabel: 'End Release:',
-            labelAlign: 'right',
-            listeners:{
-                ready: function(comobox){
-                    this._loadData();
-                },
-                select: function(combobox, records){
-                    this._loadData();
-                },
-                scope: this
-            },
-            labelWidth: 100,
-            width: 300
-        });
-        this.myLayout.add(this.releaseEndComboBox);
-    },
-
     _loadData: function(){
         if (this.chart) {
             this.remove(this.chart);
         }
-        this.endChartDate = this.releaseEndComboBox.getRecord().data.ReleaseDate;
-        this.startChartDate = this.releaseStartComboBox.getRecord().data.ReleaseStartDate;
+        this.endChartDate = new Date(this.releaseEndComboBox.getRecord().data.field1.split("&")[1]);
+        this.startChartDate = new Date(this.releaseStartComboBox.getRecord().data.field1.split("&")[0]);
+        console.log(this.endChartDate, this.startChartDate);
 
         var status = Ext.create('Rally.data.wsapi.Filter',{
             property: 'State',
@@ -171,8 +216,8 @@
 
     },
     _createChart: function(store){
-        var startIndex = this.indexOfRelease.get(this.releaseStartComboBox.getRecord().data.Name);
-        var endIndex = this.indexOfRelease.get(this.releaseEndComboBox.getRecord().data.Name);
+        var startIndex = this.indexOfRelease.get(this.releaseStartComboBox.getRecord().data.field2);
+        var endIndex = this.indexOfRelease.get(this.releaseEndComboBox.getRecord().data.field2);
         console.log(store);
         var bufferArray = [];
         var releaseNames = [];
