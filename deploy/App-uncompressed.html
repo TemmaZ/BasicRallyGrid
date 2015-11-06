@@ -184,8 +184,23 @@
             value: Ext.Date.format(this.endChartDate, 'Y-m-d')
         });
         var someFilter = status.or(closeFilter);
-
-        var startFilter = Ext.create('Rally.data.wsapi.Filter',{
+        var releaseFilter;
+        this.releaseById = new Map();
+        var size = 0;
+        for(var index = this.startIndex; index >= this.endIndex; --index){
+             var buf = Ext.create('Rally.data.wsapi.Filter',{
+                property: 'Release',
+                operator: '=',
+                value: this.arrayOfReleases[index].data._ref
+            });
+            this.releaseById.set(this.arrayOfReleases[index].data._ref, size++);
+            if(releaseFilter){
+                releaseFilter = releaseFilter.or(buf);
+            }else{
+                releaseFilter = buf;
+            }
+        }
+        /*var startFilter = Ext.create('Rally.data.wsapi.Filter',{
             property: 'CreationDate',
             operator: '>=',
             value: Ext.Date.format(this.startChartDate , 'Y-m-d')
@@ -194,8 +209,8 @@
             property: 'CreationDate',
             operator: '<=',
             value: Ext.Date.format(this.endChartDate, 'Y-m-d')
-        });
-        var needFilter = this.myFilter.and(startFilter).and(endFilter).and(someFilter);
+        });*/
+        var needFilter = this.myFilter.and(releaseFilter).and(someFilter);
             //console.log(needFilter.toString());
         if(this.myStore){
             this.myStore.setFilter(needFilter);
@@ -220,12 +235,9 @@
         console.log(store);
         var bufferArray = [];
         var releaseNames = [];
-        this.datesOfReleases = [];
         for(var index = this.startIndex; index >= this.endIndex; --index){
             bufferArray.push(0);
             releaseNames.push(this.arrayOfReleases[index].data.Name);
-            var buff = [this.arrayOfReleases[index].data.ReleaseStartDate, this.arrayOfReleases[index].data.ReleaseDate];
-            this.datesOfReleases.push(buff);
         }
         this.myMap = new Map();
         for(var i = 0; i < this.categoriesForChart.length; ++i) {
@@ -235,15 +247,7 @@
         for(var i = 0; i < store.getCount(); ++i){
             var el = store.getAt(i).data;
             //console.log(el.Release);
-            var date = el.CreationDate;
-            var index = -1;
-            for(var a = 0; a < this.datesOfReleases.length; ++a){
-                if(date >= this.datesOfReleases[a][0] && date <= this.datesOfReleases[a][1]){
-                    index = a;
-                    break;
-                }
-            }
-            if(index == -1) continue;
+            var index = this.releaseById.get(el.Release);
             //console.log(index);
             (this.myMap.get(el.Severity))[index]++;
         }
