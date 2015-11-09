@@ -42,6 +42,36 @@ Ext.define('CustomApp', {
             operator: '!=',
             value: 'Cannot Replicate'
         }));
+        filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'c_OriginalUserStory',
+            operator: '!=',
+            value: ''
+        }));
+        filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'c_OriginalUserStory',
+            operator: '!=',
+            value: '-'
+        }));
+        filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'c_OriginalUserStory',
+            operator: '!=',
+            value: 'n/a'
+        }));
+        filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'c_OriginalUserStory',
+            operator: '!=',
+            value: 'N/A'
+        }));
+        filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'c_OriginalUserStory',
+            operator: '!=',
+            value: 'NA'
+        }));
+        filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'c_OriginalUserStory',
+            operator: '!=',
+            value: 'na'
+        }));
 
         this.myFilter = filters[0];
         for(var i = 1; i < filters.length; ++i) this.myFilter = this.myFilter.and(filters[i]);
@@ -77,7 +107,6 @@ Ext.define('CustomApp', {
             }],
             listeners: {
                 load: function (myStore, myData, success) {
-                    console.log(myStore);
                     if(this.releaseStartComboBox) return;
                     this.arrayOfReleases = [];
                     this.myArray = [];
@@ -161,13 +190,11 @@ Ext.define('CustomApp', {
         this.startChartDate = this.arrayOfReleases[this.releaseStartComboBox.getRecord().data.field1].data.ReleaseStartDate;
         this.startIndex = this.releaseStartComboBox.getRecord().data.field1;
         this.endIndex = this.releaseEndComboBox.getRecord().data.field1;
-        console.log(this.endChartDate, this.startChartDate);
-        console.log(this.arrayOfReleases);
 
         var status = Ext.create('Rally.data.wsapi.Filter',{
             property: 'State',
-            operator: '!=',
-            value: 'Close'
+            operator: '=',
+            value: 'Closed'
         });
         var closeFilter = Ext.create('Rally.data.wsapi.Filter',{
             property: 'ClosedDate',
@@ -184,25 +211,14 @@ Ext.define('CustomApp', {
                 operator: '=',
                 value: this.arrayOfReleases[index].data._ref
             });
-            this.releaseById.set(this.arrayOfReleases[index].data._ref, size++);
+            this.releaseById.set(this.arrayOfReleases[index].data.Name, size++);
             if(releaseFilter){
                 releaseFilter = releaseFilter.or(buf);
             }else{
                 releaseFilter = buf;
             }
         }
-        /*var startFilter = Ext.create('Rally.data.wsapi.Filter',{
-            property: 'CreationDate',
-            operator: '>=',
-            value: Ext.Date.format(this.startChartDate , 'Y-m-d')
-        });
-        var endFilter = Ext.create('Rally.data.wsapi.Filter',{
-            property: 'CreationDate',
-            operator: '<=',
-            value: Ext.Date.format(this.endChartDate, 'Y-m-d')
-        });*/
         var needFilter = this.myFilter.and(releaseFilter).and(someFilter);
-            //console.log(needFilter.toString());
         if(this.myStore){
             this.myStore.setFilter(needFilter);
             this.myStore.load();
@@ -213,7 +229,7 @@ Ext.define('CustomApp', {
                 filters: needFilter,
                 listeners: {
                     load: function (myStore, myData, success) {
-                        this._createChart(myStore)
+                        this._createChart(myStore);
                     },
                     scope: this
                 },
@@ -223,7 +239,6 @@ Ext.define('CustomApp', {
 
     },
     _createChart: function(store){
-        console.log(store);
         var bufferArray = [];
         var releaseNames = [];
         for(var index = this.startIndex; index >= this.endIndex; --index){
@@ -234,12 +249,9 @@ Ext.define('CustomApp', {
         for(var i = 0; i < this.categoriesForChart.length; ++i) {
             this.myMap.set(this.categoriesForChart[i], bufferArray.slice());
         }
-        console.log(store.getAt(0));
-        for(var i = 0; i < store.getCount(); ++i){
+        for(i = 0; i < store.getCount(); ++i){
             var el = store.getAt(i).data;
-            //console.log(el.Release);
-            var index = this.releaseById.get(el.Release);
-            //console.log(index);
+            index = this.releaseById.get(el.Release.Name);
             (this.myMap.get(el.Severity))[index]++;
         }
 
@@ -262,7 +274,6 @@ Ext.define('CustomApp', {
             colors.push(this._createColor(numOfStep, step++));
             a = buff.next();
         }
-        //console.log(chartData, colors);
         this.chart = Ext.create('Rally.ui.chart.Chart', {
             xtype: 'rallychart',
             chartData: chartData,
