@@ -42,36 +42,6 @@ Ext.define('CustomApp', {
             operator: '!=',
             value: 'Cannot Replicate'
         }));
-        filters.push(Ext.create('Rally.data.wsapi.Filter',{
-            property: 'c_OriginalUserStory',
-            operator: '!=',
-            value: ''
-        }));
-        filters.push(Ext.create('Rally.data.wsapi.Filter',{
-            property: 'c_OriginalUserStory',
-            operator: '!=',
-            value: '-'
-        }));
-        filters.push(Ext.create('Rally.data.wsapi.Filter',{
-            property: 'c_OriginalUserStory',
-            operator: '!=',
-            value: 'n/a'
-        }));
-        filters.push(Ext.create('Rally.data.wsapi.Filter',{
-            property: 'c_OriginalUserStory',
-            operator: '!=',
-            value: 'N/A'
-        }));
-        filters.push(Ext.create('Rally.data.wsapi.Filter',{
-            property: 'c_OriginalUserStory',
-            operator: '!=',
-            value: 'NA'
-        }));
-        filters.push(Ext.create('Rally.data.wsapi.Filter',{
-            property: 'c_OriginalUserStory',
-            operator: '!=',
-            value: 'na'
-        }));
 
         this.myFilter = filters[0];
         for(var i = 1; i < filters.length; ++i) this.myFilter = this.myFilter.and(filters[i]);
@@ -187,13 +157,12 @@ Ext.define('CustomApp', {
             this.remove(this.chart);
         }
         this.endChartDate = this.arrayOfReleases[this.releaseEndComboBox.getRecord().data.field1].data.ReleaseDate;
-        this.startChartDate = this.arrayOfReleases[this.releaseStartComboBox.getRecord().data.field1].data.ReleaseStartDate;
         this.startIndex = this.releaseStartComboBox.getRecord().data.field1;
         this.endIndex = this.releaseEndComboBox.getRecord().data.field1;
 
         var status = Ext.create('Rally.data.wsapi.Filter',{
             property: 'State',
-            operator: '=',
+            operator: '!=',
             value: 'Closed'
         });
         var closeFilter = Ext.create('Rally.data.wsapi.Filter',{
@@ -218,7 +187,7 @@ Ext.define('CustomApp', {
                 releaseFilter = buf;
             }
         }
-        var needFilter = this.myFilter.and(releaseFilter).and(someFilter);
+        var needFilter = this.myFilter.and(someFilter).and(releaseFilter);
         if(this.myStore){
             this.myStore.setFilter(needFilter);
             this.myStore.load();
@@ -251,8 +220,9 @@ Ext.define('CustomApp', {
         }
         for(i = 0; i < store.getCount(); ++i){
             var el = store.getAt(i).data;
+            if(!el.Requirement) continue;
             index = this.releaseById.get(el.Release.Name);
-            (this.myMap.get(el.Severity))[index]++;
+            (this.myMap.get(el.Severity))[0]++;
         }
 
         var chartData = {
@@ -283,7 +253,7 @@ Ext.define('CustomApp', {
 
         this.add(this.chart);
         this.chart._unmask();
-
+        this.chart.exportChart();
     },
 
     _getChartConfig: function () {
