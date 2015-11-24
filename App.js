@@ -42,6 +42,11 @@ Ext.define('CustomApp', {
             operator: '!=',
             value: 'Cannot Replicate'
         }));
+        filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'Owner',
+            operator: '!=',
+            value: null
+        }));
 
         this.myFilter = filters[0];
         for(var i = 1; i < filters.length; ++i) this.myFilter = this.myFilter.and(filters[i]);

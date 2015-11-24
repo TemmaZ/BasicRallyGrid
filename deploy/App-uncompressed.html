@@ -50,6 +50,10 @@
             property: 'Resolution',
             operator: '!=',
             value: 'Cannot Replicate'
+        }));filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'Owner',
+            operator: '!=',
+            value: null
         }));
 
         this.myFilter = filters[0];
