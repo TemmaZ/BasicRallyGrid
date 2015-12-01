@@ -47,6 +47,16 @@ Ext.define('CustomApp', {
             operator: '!=',
             value: null
         }));
+        filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'Resolution',
+            operator: '!=',
+            value: 'Need More Information'
+        }));
+        filters.push(Ext.create('Rally.data.wsapi.Filter',{
+            property: 'State',
+            operator: '!=',
+            value: 'Rejected'
+        }));
 
         this.myFilter = filters[0];
         for(var i = 1; i < filters.length; ++i) this.myFilter = this.myFilter.and(filters[i]);
