@@ -67,7 +67,7 @@
                         var value = arrayData[i].data.value;
                         this.categoriesForChart.push(value);
                     }
-                    this._loadDataForComboBox();
+                    this._loadStartDateForChart();
                 },
                 scope: this
             }
@@ -76,98 +76,54 @@
         cb.setVisible(false);
     },
 
-    _loadDataForComboBox: function(){
-        var storeForRelease = Ext.create('Rally.data.wsapi.Store', {
-            model: 'Release',
-            filters: [{
-                property: 'Name',
-                operator: 'Contains',
-                value: '(F)'
-            }],
-            listeners: {
-                load: function (myStore, myData, success) {
-                    if(this.releaseStartComboBox) return;
-                    this.arrayOfReleases = [];
-                    this.myArray = [];
-                    var mySet = new Set();
-                    var day = new Date();
-                    for(var i = myStore.getCount() - 1; i > -1; --i){
-                        var el = myStore.getAt(i).data;
-                        if(mySet.has(el.Name)) continue;
-                        this.arrayOfReleases.push(myStore.getAt(i));
-                        var string = [];
-                        string.push(mySet.size);
-                        string.push(el.Name);
-                        mySet.add(el.Name);
-                        this.myArray.push(string);
-                        if(el.ReleaseStartDate <= day && day <= el.ReleaseDate)
-                            this.needSelect = string[0];
-                    }
-                    this._loadEndDateForChart(this.myArray);
-                },
-                scope: this
-            },
-            fetch:["Name","ReleaseStartDate", "ReleaseDate", "ObjectID", "State", "PlannedVelocity"],
-            limit: Infinity
-        });
-        this.first = true;
-        storeForRelease.load();
-    },
-
-    _loadEndDateForChart: function(myStore){
-        this.releaseEndComboBox  = Ext.create('Rally.ui.combobox.ComboBox',{
-            fieldLabel: 'End Release:',
+    _loadStartDateForChart: function(myStore){
+        this.sprintStartComboBox  = Ext.create('Rally.ui.combobox.IterationComboBox',{
+            fieldLabel: 'Start Sprint:',
             labelAlign: 'right',
-            store: myStore,
             listeners:{
                 ready: function(combobox){
-                    this._loadStartDateForChart(myStore);
+                   this._loadEndDateForChart();
                 },
                 select: function(combobox, records){
-                    if(!this.first)this._loadData();
+                    this._loadData();
                 },
                 scope: this
             },
             labelWidth: 100,
             width: 300
         });
-        this.myLayout.add(this.releaseEndComboBox);
-        this._myFunction();
+        this.myLayout.add(this.sprintStartComboBox);
     },
 
-    _myFunction: function(){
-        this.releaseEndComboBox.select(this.needSelect);
-        this.releaseStartComboBox.select(this.needSelect);
-        this.first = false;
-        this._loadData();
-    },
 
-    _loadStartDateForChart: function(myStore){
-        this.releaseStartComboBox  = Ext.create('Rally.ui.combobox.ComboBox',{
-            fieldLabel: 'Start Release:',
+    _loadEndDateForChart: function(){
+        this.sprntEndComboBox  = Ext.create('Rally.ui.combobox.IterationComboBox',{
+            fieldLabel: 'End Sprint:',
             labelAlign: 'right',
-            store: myStore,
             listeners:{
                 ready: function(comobox){
+                    this.mySprintModel = this.sprintStartComboBox.getStore();
+                    console.log(this.mySprintModel);
+                    this._loadData();
                 },
                 select: function(combobox, records){
-                    if(!this.first)this._loadData();
+                    this._loadData();
                 },
                 scope: this
             },
             labelWidth: 100,
             width: 300
         });
-        this.myLayout.add(this.releaseStartComboBox);
+        this.myLayout.add(this.sprntEndComboBox);
     },
 
     _loadData: function(){
         if (this.chart) {
             this.remove(this.chart);
         }
-        //this.endChartDate = this.arrayOfReleases[this.releaseEndComboBox.getRecord().data.field1].data.ReleaseDate;
-        this.startIndex = this.releaseStartComboBox.getRecord().data.field1;
-        this.endIndex = this.releaseEndComboBox.getRecord().data.field1;
+        console.log(this.mySprintModel);
+        this.startIndex = this.sprintStartComboBox.getRecord().index;
+        this.endIndex = this.sprntEndComboBox.getRecord().index;
 
         var status = Ext.create('Rally.data.wsapi.Filter',{
             property: 'State',
@@ -175,27 +131,23 @@
             value: 'Closed'
         });
         var releaseFilter;
-        this.releaseById = new Map();
+        this.sprintByName = new Map();
         var size = 0;
         for(var index = this.startIndex; index >= this.endIndex; --index){
+            var el = this.mySprintModel.getAt(index).data;
             var openStart = Ext.create('Rally.data.wsapi.Filter',{
                 property: 'CreationDate',
-                operator: '>=',
-                value: Ext.Date.format(this.arrayOfReleases[index].data.ReleaseStartDate, 'Y-m-d')
+                operator: '>',
+                value: Ext.Date.format(Ext.Date.add(el.StartDate, Ext.Date.DAY, -1), 'Y-m-d')
             });
             var openEnd = Ext.create('Rally.data.wsapi.Filter',{
                 property: 'CreationDate',
-                operator: '<=',
-                value: Ext.Date.format(this.arrayOfReleases[index].data.ReleaseDate, 'Y-m-d')
+                operator: '<',
+                value: Ext.Date.format(Ext.Date.add(el.EndDate, Ext.Date.DAY, +1), 'Y-m-d')
             });
-           /* var closeFilter = Ext.create('Rally.data.wsapi.Filter',{
-                property: 'ClosedDate',
-                operator: '>',
-                value: Ext.Date.format(this.arrayOfReleases[index].data.ReleaseDate, 'Y-m-d')
-            });*/
-            var someFilter = status;//.or(closeFilter);
+            var someFilter = status;
             someFilter = someFilter.and(openStart).and(openEnd);
-            this.releaseById.set(this.arrayOfReleases[index].data.Name, size++);
+            this.sprintByName.set(el.formattedName, size++);
             if(releaseFilter){
                 releaseFilter = releaseFilter.or(someFilter);
             }else{
@@ -203,7 +155,6 @@
             }
         }
         var needFilter = this.myFilter.and(releaseFilter);
-        console.log("dsdsd", this.arrayOfReleases[0].data);
         console.log(needFilter.toString());
         if(this.myStore){
             this.myStore.setFilter(needFilter);
@@ -229,7 +180,7 @@
         var releaseNames = [];
         for(var index = this.startIndex; index >= this.endIndex; --index){
             bufferArray.push(0);
-            releaseNames.push(this.arrayOfReleases[index].data.Name);
+            releaseNames.push(this.mySprintModel.getAt(index).data.formattedName);
         }
         this.myMap = new Map();
         for(var i = 0; i < this.categoriesForChart.length; ++i) {
@@ -238,23 +189,21 @@
         for(i = 0; i < store.getCount(); ++i){
             var el = store.getAt(i).data;
             if(!el.Requirement) continue;
-            console.log(i, el.Requirement);
             index = 0;
-            if(el.Release){
-                index = this.releaseById.get(el.Release.Name);
-            }else if(el.Requirement.Release) {
-                index = this.releaseById.get(el.Requirement.Release.Name);
+            if(el.Iteration){
+                index = this.sprintByName.get(el.Iteration.Name);
             }else {
                 var date = el.CreationDate;
                 for (var ind = this.startIndex; ind >= this.endIndex; --ind) {
-                    var start = this.arrayOfReleases[ind].data.ReleaseStartDate;
-                    var end = this.arrayOfReleases[ind].data.ReleaseDate;
+                    var it = this.mySprintModel.getAt(ind).data;
+                    var start = it.StartDate;
+                    var end = it.EndDate;
                     if (start <= date && date <= end) break;
                     ++index;
                 }
             }
-
             (this.myMap.get(el.Severity))[index]++;
+            console.log(i, el, this.myMap);
         }
 
         var chartData = {
@@ -294,7 +243,7 @@
               type: 'column'
             },
             title: {
-                text: 'Open Defects by Severity Overtime by Sprint/Release (non-production)'
+                text: ''
             },
             xAxis: {
                 labels: {
