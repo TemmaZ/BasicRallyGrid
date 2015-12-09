@@ -165,7 +165,7 @@
         if (this.chart) {
             this.remove(this.chart);
         }
-        this.endChartDate = this.arrayOfReleases[this.releaseEndComboBox.getRecord().data.field1].data.ReleaseDate;
+        //this.endChartDate = this.arrayOfReleases[this.releaseEndComboBox.getRecord().data.field1].data.ReleaseDate;
         this.startIndex = this.releaseStartComboBox.getRecord().data.field1;
         this.endIndex = this.releaseEndComboBox.getRecord().data.field1;
 
@@ -174,29 +174,37 @@
             operator: '!=',
             value: 'Closed'
         });
-        var closeFilter = Ext.create('Rally.data.wsapi.Filter',{
-            property: 'ClosedDate',
-            operator: '>',
-            value: Ext.Date.format(this.endChartDate, 'Y-m-d')
-        });
-        var someFilter = status.or(closeFilter);
         var releaseFilter;
         this.releaseById = new Map();
         var size = 0;
         for(var index = this.startIndex; index >= this.endIndex; --index){
-             var buf = Ext.create('Rally.data.wsapi.Filter',{
-                property: 'Release',
-                operator: '=',
-                value: this.arrayOfReleases[index].data._ref
+            var openStart = Ext.create('Rally.data.wsapi.Filter',{
+                property: 'CreationDate',
+                operator: '>=',
+                value: Ext.Date.format(this.arrayOfReleases[index].data.ReleaseStartDate, 'Y-m-d')
             });
+            var openEnd = Ext.create('Rally.data.wsapi.Filter',{
+                property: 'CreationDate',
+                operator: '<=',
+                value: Ext.Date.format(this.arrayOfReleases[index].data.ReleaseDate, 'Y-m-d')
+            });
+           /* var closeFilter = Ext.create('Rally.data.wsapi.Filter',{
+                property: 'ClosedDate',
+                operator: '>',
+                value: Ext.Date.format(this.arrayOfReleases[index].data.ReleaseDate, 'Y-m-d')
+            });*/
+            var someFilter = status;//.or(closeFilter);
+            someFilter = someFilter.and(openStart).and(openEnd);
             this.releaseById.set(this.arrayOfReleases[index].data.Name, size++);
             if(releaseFilter){
-                releaseFilter = releaseFilter.or(buf);
+                releaseFilter = releaseFilter.or(someFilter);
             }else{
-                releaseFilter = buf;
+                releaseFilter = someFilter;
             }
         }
-        var needFilter = this.myFilter.and(someFilter).and(releaseFilter);
+        var needFilter = this.myFilter.and(releaseFilter);
+        console.log("dsdsd", this.arrayOfReleases[0].data);
+        console.log(needFilter.toString());
         if(this.myStore){
             this.myStore.setFilter(needFilter);
             this.myStore.load();
@@ -230,14 +238,30 @@
         for(i = 0; i < store.getCount(); ++i){
             var el = store.getAt(i).data;
             if(!el.Requirement) continue;
-            index = this.releaseById.get(el.Release.Name);
-            (this.myMap.get(el.Severity))[0]++;
+            console.log(i, el.Requirement);
+            index = 0;
+            if(el.Release){
+                index = this.releaseById.get(el.Release.Name);
+            }else if(el.Requirement.Release) {
+                index = this.releaseById.get(el.Requirement.Release.Name);
+            }else {
+                var date = el.CreationDate;
+                for (var ind = this.startIndex; ind >= this.endIndex; --ind) {
+                    var start = this.arrayOfReleases[ind].data.ReleaseStartDate;
+                    var end = this.arrayOfReleases[ind].data.ReleaseDate;
+                    if (start <= date && date <= end) break;
+                    ++index;
+                }
+            }
+
+            (this.myMap.get(el.Severity))[index]++;
         }
 
         var chartData = {
             categories: releaseNames,
             series: []
         };
+
 
         var buff = this.myMap.keys();
         var a = buff.next();
@@ -262,7 +286,6 @@
 
         this.add(this.chart);
         this.chart._unmask();
-
     },
 
     _getChartConfig: function () {
