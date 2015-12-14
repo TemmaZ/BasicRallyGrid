@@ -130,23 +130,17 @@ Ext.define('CustomApp', {
             operator: '!=',
             value: 'Closed'
         });
-        var closeFilter = Ext.create('Rally.data.wsapi.Filter',{
-            property: 'ClosedDate',
-            operator: '>',
-            value: Ext.Date.format(this.endChartDate, 'Y-m-d')
-        });
         var startFilter = Ext.create('Rally.data.wsapi.Filter',{
             property: 'CreationDate',
-            operator: '>=',
-            value: Ext.Date.format(this.startChartDate , 'Y-m-d')
+            operator: '>',
+            value: Ext.Date.format(Ext.Date.add(this.startChartDate, Ext.Date.DAY, -1), 'Y-m-d')
         });
         var endFilter = Ext.create('Rally.data.wsapi.Filter',{
             property: 'CreationDate',
-            operator: '<=',
-            value: Ext.Date.format(this.endChartDate, 'Y-m-d')
+            operator: '<',
+            value: Ext.Date.format(Ext.Date.add(this.endChartDate, Ext.Date.DAY, +1), 'Y-m-d')
         });
-        var someFilter = status.or(closeFilter);
-        var needFilter = this.myFilter.and(startFilter).and(endFilter).and(someFilter);
+        var needFilter = this.myFilter.and(startFilter).and(endFilter).and(status);
         if(this.myStore){
             this.myStore.setFilter(needFilter);
             this.myStore.load();
@@ -233,7 +227,7 @@ Ext.define('CustomApp', {
               type: 'column'
             },
             title: {
-                text: 'Open Defects by Severity Overtime (non-production defects)'
+                text: ''
             },
             xAxis: {
                 labels: {
